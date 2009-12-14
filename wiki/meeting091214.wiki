@@ -1,2 +1,9 @@
 #labels meeting,introduction
-Created page
+== Participants ==
+
+Audun Vaaler
+Dave Noble
+Lars Bjørkevoll
+Vanja Ohna
+
+== Schedule ==
