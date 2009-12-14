@@ -1,13 +1,10 @@
 #labels meeting,introduction
 == Participants ==
 
-Audun Vaaler
-
-Dave Noble
-
-Lars Bjørkevoll
-
-Vanja Ohna
+  *Audun Vaaler
+  *Dave Noble
+  *Lars Bjørkevoll
+  *Vanja Ohna
 
 
 == Schedule ==
