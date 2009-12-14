@@ -1,7 +1,7 @@
 #labels meeting,introduction
 == Participants ==
 
-Audun Vaaler
+Audun Vaaler\\
 Dave Noble
 Lars Bjørkevoll
 Vanja Ohna
