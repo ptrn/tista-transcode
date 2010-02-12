@@ -1,10 +1,10 @@
 #! /bin/bash
 
 createuser --no-adduser --no-createdb www-data
-createdb --encoding utf-8 ttc
+createdb --encoding utf-8 tista-transcode
 
-createlang plpythonu ttc
+createlang plpythonu tista-transcode
 
-psql ttc < tables.sql
+psql tista-transcode < tables.sql
 
-sudo mkdir /var/lib/ttc /var/lib/ttc/cache /var/lib/ttc/cache/snapshots
+sudo mkdir /var/lib/tista-transcode /var/lib/tista-transcode/cache /var/lib/tista-transcode/cache/snapshots
