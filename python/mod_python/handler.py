@@ -1,6 +1,7 @@
 #! /usr/bin/python
 # -*- coding: utf-8; -*-
 
+
 import time, sys
 
 import psycopg2
@@ -31,13 +32,17 @@ def handler(req):
 
     if cfg == None:
         cfgPath = req.get_options()["ttcConfigPath"]
-        
-        cfg = ttc.config.Load(cfgPath)
+        if cfgPath:
+          cfg = ttc.config.Load(cfgPath)
+    if cfg == None:
+        return apache.HTTP_NOT_FOUND
 
     dbName = cfg["database"]["name"]
     dbUser = cfg["database"]["webUser"]
-
-    hostName = "%s.%s" % (cfg["network"]["host"], cfg["network"]["domain"])
+ 
+    hostName = cfg["network"]["host"]
+    if hostName != 'localhost':
+        hostName = "%s.%s" % (cfg["network"]["host"], cfg["network"]["domain"])
     if req.hostname != hostName:
         # *** Todo: Handle other protocols (e.g. HTTPS) and ports
         target = "http://%s%s" % (hostName, req.uri)
@@ -57,7 +62,7 @@ def handler(req):
         method = UploadJob
     elif req.uri.startswith("/ttc/jobs/download/"):
         method = DownloadJob
-    else:
+    else: 
         return apache.HTTP_NOT_FOUND
 
     try:
@@ -68,5 +73,6 @@ def handler(req):
     else:
         req.conn.commit()
         return res
+ 
+pathMapping = dict([(c.path, c) for c in globals().values() if type(c) is type(Page) and issubclass(c, Page) and c is not Page and isinstance(c.path, str)])
 
-pathMapping = dict([(c.path, c) for c in globals().values() if type(c) is type and issubclass(c, Page) and c is not Page and isinstance(c.path, str)])

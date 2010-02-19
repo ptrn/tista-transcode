@@ -29,6 +29,7 @@ class Page(object):
     
     """
     
+    args = None # Help string for web interface
     showDebug = True # Show debug info (performance) if showDebug is True and debug mode is on
 
     # Used for parsing HTML template files

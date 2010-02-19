@@ -128,8 +128,9 @@ class Transcoder(object):
                 break
             conn.send(s)
 
-        if conn.getresponse().status != 200:
-            raise TTUploadError, "HTTP error %i during upload" % conn.getresponse().status
+        resp = conn.getresponse().status
+        if resp != 200:
+            raise TTUploadError, "HTTP error %i during upload" % resp
 
 class StreamingTranscoder(Transcoder):
     """
@@ -261,7 +262,12 @@ class SNDPTheoraTranscoder(Transcoder):
 def ProcessOneJob(baseURL, transcoderMapping):
     root = tempfile.mkdtemp(prefix = 'ttc-')
 
-    assignURL = os.path.join(baseURL, "jobs/assign_next_job?%s" % urllib.urlencode([("r", r) for r in transcoderMapping.keys()]))
+    arguments = "%s" % urllib.urlencode([("r", r) for r in transcoderMapping.keys()])
+    assignURL = os.path.join(baseURL, "jobs/assign_next_job?", arguments)
+    if arguments == "":
+        sys.stderr.write('Transcoding error: No transcoders available\n')
+        sys.exit(1)
+
 
     jobDesc = urllib2.urlopen(assignURL).read().strip()
 
@@ -288,10 +294,11 @@ def ProcessOneJob(baseURL, transcoderMapping):
 
 def GetTranscoderMapping(baseURL):
     d = {}
-    
+    ttype = type(Transcoder)
+
     #return dict([(c.path, c) for c in globals().values() if type(c) is type and issubclass(c, Page) and c is not Page and isinstance(c.path, str)])
     for c in globals().values():
-        if type(c) is type and issubclass(c, Transcoder) and c is not Transcoder:
+        if type(c) is ttype and issubclass(c, Transcoder) and c is not Transcoder:
             transcoder = c(baseURL)
             recipe = transcoder.GetRecipe()
 
