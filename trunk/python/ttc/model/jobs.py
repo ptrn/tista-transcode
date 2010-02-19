@@ -11,6 +11,7 @@ manipulating users. Also includes authentication functions.
 import os, stat, tempfile, subprocess, shutil
 
 import psycopg2, PIL.Image, PIL.ImageOps
+from psycopg2.extensions import adapt
 
 from ttc.db import PsE
 
@@ -38,6 +39,14 @@ class Job(object):
         Returns total size of all source files
         """
         return sum([os.stat(p)[stat.ST_SIZE] for p in self.srcPaths])
+
+    def GetType(self):
+        """
+
+        Returns a string describing the transcoding procedure
+    
+        """
+        return self.recipe   
 
     def __init__(self, jobID, srcPaths, dstPath, recipe, state = 'w', creationTime = None, workerAddress = None, workerStartTime = None, workerHeardFrom = None, workerRelativeProgress = None, priority = 128):
         self.id = jobID
@@ -117,6 +126,83 @@ class Job(object):
     def SetFinished(self, cursor):
         PsE(cursor, "update jobs set state='f' where id=%s", (self.id,))
 
+class Job2(Job):
+    """
+    
+    Represents a job
+
+    """
+
+    def __init__(self, jobID, srcURI, dstURI, fDict, state = 'w', creationTime = None, workerAddress = None, workerStartTime = None, workerHeardFrom = None, workerRelativeProgress = None, priority = 128):
+        self.id = jobID
+        self.srcURI = srcURI
+        self.dstURI = dstURI
+        self.fDict  = fDict
+        self.state  = state
+        self.priority = priority
+
+        self.creationTime = creationTime
+
+        self.workerAddress = workerAddress
+        self.workerStartTime = workerStartTime
+        self.workerHeardFrom = workerHeardFrom
+        self.workerRelativeProgress = workerRelativeProgress
+
+    def CalculateSourceSize(self):
+        """
+        Only call this when source file 
+        """
+        return 0
+
+    def GetType(self):
+        """
+
+        Returns a string describing the transcoding procedure
+    
+        """
+        return "%s/%s" % (self.fDict["format"], self.fDict.get("vcodec","?"))
+
+    def Insert(self, cursor, cachePath):
+        """
+
+        Insert job into the database. ID, dstPath, srcPaths, format arguments and srcSize will be stored.
+        
+        cursor    : database handle
+        cachePath : direcory for placing snapshots during transcoding (currently not working)
+        Returns   : nothing
+
+        """
+
+        self.id = ttc.model.RandomHexString(32)
+        size = self.CalculateSourceSize()
+
+        PsE(cursor, "insert into Jobs2 (id, srcURI, dstURI, priority, srcSize) values (%s, %s, %s, %s, %s)", (self.id, str(self.srcURI), self.dstURI, self.priority, size))
+        for key in self.fDict:
+            PsE(cursor, "insert into Parameters (jobID, key, value) values (%s, %s, %s)", (self.id, str(key), str(self.fDict[key])))
+
+def AddOneJob(cursor, srcURI, dstURI, cache, arguments):
+    """
+
+    Creates destination URI, adds job to the database
+
+    cursor    : sql database handle 
+    srcURI    : URI of item that should be transcoded
+    dstURI    : URI of the location that should hold the transcoded item 
+    arguments : dictionary containing key value pairs describing destination format and transcoding options
+
+    Returns   : job 
+    """
+    
+    job = Job2(None, srcURI, dstURI, arguments)
+    if not job:
+        return None
+    try:
+        job.Insert(cursor, cache)
+    except psycopg2.IntegrityError:
+        return None
+
+    return job
+
 def AssignNextJob(cursor, workerIP, recipes):
     """
 
@@ -153,7 +239,12 @@ def GetJobByID(cursor, jobID):
     """
 
     PsE(cursor, "select id, dstPath, recipe, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority from jobs where id=%s", (jobID,))
-    jobID, dstPath, recipe, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority = cursor.fetchone()
+
+    try:
+      jobID, dstPath, recipe, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority = cursor.fetchone()
+    except TypeError:
+      # No jobs matching id
+      return None
 
     PsE(cursor, "select path from SourcePaths where jobID=%s", (jobID,))
     srcPaths = [r[0] for r in cursor.fetchall()]
@@ -182,5 +273,31 @@ def GetJobs(cursor, state = None):
         srcPaths = [r[0] for r in cursor.fetchall()]
 
         jobs.append(Job(jobID, srcPaths, dstPath, recipe, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority))
+
+    return jobs
+
+def GetJobs2(cursor, state = None):
+    """
+
+    Returns a list of jobs, optionally filtered by state
+    
+    state     : w/i/f/e, character indicating transcoding state
+    Returns   : job list 
+
+    """
+
+    if state:
+        statePart = " where state='%s'" % state
+    else:
+        statePart = []
+
+    jobs = []
+
+    PsE(cursor, "select id, srcURI, dstURI, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority from jobs2%s" % statePart)
+    for jobID, srcURI, dstURI, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority in cursor.fetchall():
+        PsE(cursor, "select key, value from parameters where jobID=%s", (jobID,))
+        fDict = dict([(p[0], p[1]) for p in cursor.fetchall()])
+
+        jobs.append(Job2(jobID, srcURI, dstURI, fDict, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority))
 
     return jobs

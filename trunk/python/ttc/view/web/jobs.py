@@ -18,6 +18,80 @@ import ttc.view.web
 
 from ttc.view.web import Page, EH
 
+import urlparse
+
+class Help(Page):
+    
+    path = "/ttc/help"
+
+    showDebug = False
+
+    def Main(self):
+        pathMapping = dict([(c.path, c) for c in globals().values() if type(c) is type(Page) and issubclass(c, Page) and c is not Page and isinstance(c.path, str)])
+        s = "<h2>Usage:</h2><ol>"
+        for c in pathMapping:
+            s = s + "<li>" + c
+            if isinstance(pathMapping[c].args, str):
+              s += " ? " + pathMapping[c].args
+            s += "</li>"
+        s += "</ol>" 
+        html = "<html><head><title>Tista Transcoding</title></head><body><h1>Tista Transcoding Job Management</h1>%s</body></html>" % s
+        self.SendHeader("text/html")
+        self.Write(html)
+
+        return apache.OK
+
+class AddOneJob(Page):
+    """
+
+    HTTP-handler requesting a transcoding job.
+    HTTP-query arguments:
+      src:
+        srcuri   : URI, file or http, of an item that should be transcoded
+      destination format:
+        format   :
+        vcodec   :
+        acodec   :
+    Used by  : CMS (Content Manager System)
+
+
+    """
+
+    
+    path = "/ttc/jobs/add_one_job"
+    args = 'srcuri=file://path/file&format=mp4&vcodec=h.264&acodec=aac&vbitrate=1024&abitrate=128&width=640&height=480'
+
+    showDebug = False
+
+    def Main(self):
+        form = dict(mod_python.util.FieldStorage(self.req))
+        srcURI = form.pop("srcURI") # should uridecode this
+        outExt = form.get("format","ogg")
+        if not outExt.startswith("."):
+            outExt = "." + outExt
+
+        cfg      = self.req.config
+        cache    = cfg["path"]["cache"]
+        inPath   = urlparse.urlparse(srcURI).path
+        basePart = os.path.splitext(os.path.split(inPath)[1])[0]
+        outRoot  = cfg["path"]["storage"]
+        dstPath  = os.path.join(outRoot, basePart + outExt)
+        dstURI   = urlparse.urlunparse(["file","",dstPath,"","",""])
+
+        job = ttc.model.jobs.AddOneJob(self.req.cursor, srcURI, dstURI, cache, form)
+        self.SendHeader("text/html")
+        if job:
+            self.Write("<html><head><title>Tista Transcoding</title></head><body><h1>Tista Transcoding Job Management</h1><h2>Result:</h2><p>Job %s transcoding into %s</body></html>\n" % (job.id, dstURI))
+            self.req.conn.commit()
+        else:
+            self.Write("<html><head><title>Tista Transcoding</title></head><body><h1>Tista Transcoding Job Management</h1><h2>Result:</h2><p>No job created for item %s. Maybe duplicate of %s</body></html>\n" % (srcURI, dstURI))
+            self.req.conn.rollback()
+            return apache.HTTP_INTERNAL_SERVER_ERROR 
+        """
+            should return JSON error description and HTTP error status
+        """
+        return apache.OK
+
 class AssignNextJob(Page):
     """
 
@@ -26,6 +100,7 @@ class AssignNextJob(Page):
     """
 
     path = "/ttc/jobs/assign_next_job"
+    args = 'r=recipe'
 
     showDebug = False
 
@@ -43,7 +118,11 @@ class AssignNextJob(Page):
 
         if job:
             self.Write("%s %s %i\n" % (job.id, job.recipe, len(job.srcPaths)))
-
+        else:
+            return apache.HTTP_INTERNAL_SERVER_ERROR 
+        """
+            should return JSON error description and HTTP error status
+        """
         return apache.OK
 
 class DownloadJob(Page):
@@ -91,14 +170,24 @@ class UploadJob(Page):
     def Main(self):
         jobID = self.req.uri.split("/")[-1]
 
+        if jobID == 0:
+          return apache.HTTP_NOT_FOUND
         job = ttc.model.jobs.GetJobByID(self.req.cursor, jobID)
+        if not job:
+          return apache.HTTP_NOT_FOUND
 
-        fSize = int(self.req.headers_in['content-length'])
+        if 'content-length' in self.req.headers_in: 
+          fSize = int(self.req.headers_in['content-length'])
+        else:
+          return apache.HTTP_LENGTH_REQUIRED
 
         dirPart = os.path.split(job.dstPath)[0]
         if not os.path.exists(dirPart):
             os.makedirs(dirPart)
-        f = open(job.dstPath + ".ttc", "wb")
+        try:
+          f = open(job.dstPath + ".ttc", "wb")
+        except:
+          return apache.HTTP_NOT_FOUND
 
         bytesReceived = 0
         while bytesReceived < fSize:
@@ -172,7 +261,7 @@ class JobsMain(Page):
         else:
             sizeS = ""
 
-        return '<div class="job"><img src="snapshot?id=%s" alt="" /><strong>%s</strong> %s%s</div>\n' % (job.id, job.recipe, os.path.split(job.dstPath)[-1], sizeS)
+        return '<div class="job"><img src="snapshot?id=%s" alt="" /><strong>%s</strong> %s%s</div>\n' % (job.id, job.GetType(), os.path.split(job.dstURI)[-1], sizeS)
 
     def JobsToHTML(self, jobs):
         html  = '<div class="group">\n'
@@ -182,9 +271,9 @@ class JobsMain(Page):
         return html
 
     def Main(self):
-        waiting    = ttc.model.jobs.GetJobs(self.req.cursor, 'w')
-        inProgress = ttc.model.jobs.GetJobs(self.req.cursor, 'i')
-        finished   = ttc.model.jobs.GetJobs(self.req.cursor, 'f')
+        waiting    = ttc.model.jobs.GetJobs2(self.req.cursor, 'w')
+        inProgress = ttc.model.jobs.GetJobs2(self.req.cursor, 'i')
+        finished   = ttc.model.jobs.GetJobs2(self.req.cursor, 'f')
 
         html = """<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 
