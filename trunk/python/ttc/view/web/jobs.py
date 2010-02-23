@@ -21,6 +21,13 @@ from ttc.view.web import Page, EH
 import urlparse
 
 class Help(Page):
+    """
+
+    Deliever a human-readable help-page.
+    HTTP-query arguments:
+    Used by  : CMS (Content Manager System)
+
+    """
     
     path = "/ttc/help"
 
@@ -49,11 +56,22 @@ class AddOneJob(Page):
       src:
         srcuri   : URI, file or http, of an item that should be transcoded
       destination format:
-        format   :
-        vcodec   :
-        acodec   :
+        format      
+        vcodec     
+        acodec     
+        vbitrate   
+        abitrate   
+        width      
+        height     
+      video options
+        aspectratio
+        interlace 
+        fieldorder 
+    Returns:
+        jobid
+        srcuri
+        dsturi
     Used by  : CMS (Content Manager System)
-
 
     """
 
@@ -64,9 +82,15 @@ class AddOneJob(Page):
     showDebug = False
 
     def Main(self):
-        form = dict(mod_python.util.FieldStorage(self.req))
-        srcURI = form.pop("srcURI") # should uridecode this
-        outExt = form.get("format","ogg")
+        self.SendHeader("application/json")
+        try:
+            form = dict(mod_python.util.FieldStorage(self.req))
+            srcURI = form.pop("srcuri") # should uridecode this
+            outExt = form.get("format","ogg")
+        except:
+            self.Write("{\n  \"Error\" : \"Parameter error\",\n  \"Suggestion\" : \"Missing srcuri\"\n}\n\n")
+            return apache.HTTP_INTERNAL_SERVER_ERROR 
+   
         if not outExt.startswith("."):
             outExt = "." + outExt
 
@@ -79,18 +103,97 @@ class AddOneJob(Page):
         dstURI   = urlparse.urlunparse(["file","",dstPath,"","",""])
 
         job = ttc.model.jobs.AddOneJob(self.req.cursor, srcURI, dstURI, cache, form)
-        self.SendHeader("text/html")
         if job:
-            self.Write("<html><head><title>Tista Transcoding</title></head><body><h1>Tista Transcoding Job Management</h1><h2>Result:</h2><p>Job %s transcoding into %s</body></html>\n" % (job.id, dstURI))
+            self.Write("{\n  \"id\" : \"%s\",\n  \"srcURI\" : \"%s\",\n  \"dstURI\" : \"%s\"\n}\n" % (job.id,job.srcURI,job.dstURI))
             self.req.conn.commit()
+            return apache.OK
         else:
-            self.Write("<html><head><title>Tista Transcoding</title></head><body><h1>Tista Transcoding Job Management</h1><h2>Result:</h2><p>No job created for item %s. Maybe duplicate of %s</body></html>\n" % (srcURI, dstURI))
+            self.Write("{\n  \"Error\" : \"Job not created\",\n  \"Suggestion\" : \"Maybe duplicate\",\n  \"srcURI\" : \"%s\",\n  \"dstURI\" : \"%s\"\n}\n" % (srcURI, dstURI))
             self.req.conn.rollback()
             return apache.HTTP_INTERNAL_SERVER_ERROR 
-        """
-            should return JSON error description and HTTP error status
-        """
-        return apache.OK
+
+class GetJobList(Page):
+    """
+
+    HTTP-handler providing a list of waiting transcoding jobs.
+    HTTP-query arguments:
+      destination format: used for filtering available jobs
+        format      
+        vcodec     
+        acodec     
+        vbitrate   
+        abitrate   
+        width      
+        height     
+    Returns:
+      If jobs are waiting: Job list in JSON
+      If job not available: Status code / JSON-description
+    Used by  : Transcoding client
+
+    """
+
+    
+    path = "/ttc/jobs/get_job_list"
+    args = 'format=mp4&vcodec=h.264&acodec=aac&vbitrate=1024&abitrate=128&width=640&height=480'
+
+    showDebug = False
+
+    def Main(self):
+        form = dict(mod_python.util.FieldStorage(self.req))
+ 
+        cfg      = self.req.config
+
+        jobs = ttc.model.jobs.GetJobList(self.req.cursor, 'w', form )
+        self.SendHeader("application/json")
+        if jobs:
+            self.Write("[")
+            d = ",".join(["\n {%s\n  %s\n }" % (
+                    "\n  \"id\" : \"%s\"," % (j.id),
+                    ",\n  ".join(["\"%s\" : \"%s\"" % (k,v) for k,v in j.fDict.iteritems()])) for j in jobs]) 
+            self.Write("%s" % d) 
+            self.Write("\n]\n")
+            return apache.OK
+        else:
+            self.Write("{ \"Error\" : \"Jobs not found\"  }\n")
+            return apache.HTTP_INTERNAL_SERVER_ERROR # find better return code?
+
+class AssignJob(Page):
+    """
+
+    HTTP-handler assigning a transcoding job to a client.
+    HTTP-query arguments:
+      id: identifier from the previously transmitted list of available jobs. 32 hexadecimal digits
+    Returns:
+      If job is available: Source and destination uri in JSON
+      If job not available: Status code / JSON-description
+    Used by  : Transcoding client
+
+    """
+   
+    path = "/ttc/jobs/assign_job"
+    args = 'id=&lt;job id&gt;'
+
+    showDebug = False
+
+    def Main(self):
+        form  = mod_python.util.FieldStorage(self.req)
+        jobID = form["id"].value
+ 
+        cfg   = self.req.config
+
+        self.SendHeader("application/json")
+        job   = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
+        if job is None:
+            self.Write("{ \"Error\" : \"Job not found\"  }\n")
+            return apache.HTTP_INTERNAL_SERVER_ERROR # find better return code?
+        elif job.state is 'w':
+            job.Assign(self.req.cursor, self.req.get_remote_host(apache.REMOTE_NOLOOKUP))
+            self.Write("{\n  \"srcURI\" : \"%s\",\n  \"dstURI\" : \"%s\"\n}\n" % (job.srcURI,job.dstURI))
+            return apache.OK
+        else:
+            self.Write("{ \"Error\" : \"Job busy\"  }\n")
+            return apache.HTTP_INTERNAL_SERVER_ERROR # find better return code?
+
 
 class AssignNextJob(Page):
     """
