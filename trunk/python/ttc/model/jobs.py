@@ -277,7 +277,67 @@ class Job2(Job):
         self.UpdateProgress(cursor, 0)
 
 
-def GetJobs2(cursor, state = None):
+def AddOneJob(cursor, srcURI, dstURI, cache, arguments):
+    """
+
+    Creates destination URI, adds job to the database
+
+    cursor    : sql database handle 
+    srcURI    : URI of item that should be transcoded
+    dstURI    : URI of the location that should hold the transcoded item 
+    arguments : dictionary containing key value pairs describing destination format and transcoding options
+
+    Returns   : job 
+    """
+    
+    job = Job2(None, srcURI, dstURI, arguments)
+    if not job:
+        return None
+    try:
+        job.Insert(cursor, cache)
+    except psycopg2.IntegrityError:
+        return None
+
+    return job
+
+def GetJobsByParams(cursor, state=None, arguments=dict([])):
+    """
+
+    Returns a list of jobs, optionally filtered by state and destination format
+ 
+    cursor    : sql database handle 
+    arguments : dictionary containing key value pairs describing possible destination formats
+
+    Returns   : list of jobs 
+    """
+    
+    keypart = " "
+    valpart = []
+
+    if state:
+        statepart = " where state=%s"
+        valpart.append(str(state))
+    else:
+        statepart = " where state=state"
+    
+    for key in arguments:
+        keypart += " and exists (select jobID from parameters where jobs2.id=parameters.jobID and key = %s and value = %s)"
+        valpart.append(str(key))
+        valpart.append(str(arguments[key]))
+    
+    jobs = []
+
+
+    PsE(cursor, "select id, srcURI, dstURI, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority from jobs2 " + statepart + keypart + " order by priority asc",valpart)
+    for jobID, srcURI, dstURI, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority in cursor.fetchall():
+            
+        PsE(cursor, "select key, value from parameters where jobID=%s", (jobID,))
+        fDict = dict([(p[0], p[1]) for p in cursor.fetchall()])
+
+        jobs.append(Job2(jobID, srcURI, dstURI, fDict, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority))
+    return jobs
+
+def GetJobsByState(cursor, state = None):
     """
 
     Returns a list of jobs, optionally filtered by state
@@ -303,70 +363,15 @@ def GetJobs2(cursor, state = None):
 
     return jobs
 
-def AddOneJob(cursor, srcURI, dstURI, cache, arguments):
-    """
-
-    Creates destination URI, adds job to the database
-
-    cursor    : sql database handle 
-    srcURI    : URI of item that should be transcoded
-    dstURI    : URI of the location that should hold the transcoded item 
-    arguments : dictionary containing key value pairs describing destination format and transcoding options
-
-    Returns   : job 
-    """
-    
-    job = Job2(None, srcURI, dstURI, arguments)
-    if not job:
-        return None
-    try:
-        job.Insert(cursor, cache)
-    except psycopg2.IntegrityError:
-        return None
-
-    return job
-
-def GetJobList(cursor, state=None, arguments=dict([])):
-    """
-
-    Returns a list of jobs, optionally filtered by state and destination format
- 
-    cursor    : sql database handle 
-    arguments : dictionary containing key value pairs describing possible destination formats
-
-    Returns   : list of jobs 
-    """
-    
-    if state:
-        statePart = " where state='%s'" % state
-    else:
-        statePart = []
-
-    keypart = " "
-    valpart = []
-    valpart.append(state)
-    
-    for key in arguments:
-        keypart += " and exists (select jobID from parameters where jobs2.id=parameters.jobID and key = %s and value = %s)"
-        valpart.append(str(key))
-        valpart.append(str(arguments[key]))
-    
-    jobs = []
-
-
-    PsE(cursor, "select id, srcURI, dstURI, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority from jobs2 where jobs2.state=%s" + keypart + " order by priority asc",valpart)
-    for jobID, srcURI, dstURI, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority in cursor.fetchall():
-            
-        PsE(cursor, "select key, value from parameters where jobID=%s", (jobID,))
-        fDict = dict([(p[0], p[1]) for p in cursor.fetchall()])
-
-        jobs.append(Job2(jobID, srcURI, dstURI, fDict, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority))
-    return jobs
 
 def GetJobByID2(cursor, jobID):
     """
-
     
+    Returns a job identified by the argument
+
+    jobID   : 32 byte hexadecimal string 
+    returns : job or None if no matching jobID was found
+ 
     """
 
     PsE(cursor, "select id, srcURI, dstURI, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority from jobs2 where id=%s", (jobID,))

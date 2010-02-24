@@ -89,7 +89,7 @@ class AddOneJob(Page):
             outExt = form.get("format","ogg")
         except:
             self.Write("{\n  \"Error\" : \"Parameter error\",\n  \"Suggestion\" : \"Missing srcuri\"\n}\n\n")
-            return apache.HTTP_INTERNAL_SERVER_ERROR 
+            return apache.HTTP_BAD_REQUEST 
    
         if not outExt.startswith("."):
             outExt = "." + outExt
@@ -110,7 +110,7 @@ class AddOneJob(Page):
         else:
             self.Write("{\n  \"Error\" : \"Job not created\",\n  \"Suggestion\" : \"Maybe duplicate\",\n  \"srcURI\" : \"%s\",\n  \"dstURI\" : \"%s\"\n}\n" % (srcURI, dstURI))
             self.req.conn.rollback()
-            return apache.HTTP_INTERNAL_SERVER_ERROR 
+            return apache.HTTP_CONFLICT 
 
 class GetJobList(Page):
     """
@@ -140,10 +140,11 @@ class GetJobList(Page):
 
     def Main(self):
         form = dict(mod_python.util.FieldStorage(self.req))
- 
+        state = form.pop("state",None) # should uridecode this
+
         cfg      = self.req.config
 
-        jobs = ttc.model.jobs.GetJobList(self.req.cursor, 'w', form )
+        jobs = ttc.model.jobs.GetJobsByParams(self.req.cursor, state, form )
         self.SendHeader("application/json")
         if jobs:
             self.Write("[")
@@ -155,7 +156,7 @@ class GetJobList(Page):
             return apache.OK
         else:
             self.Write("{ \"Error\" : \"Jobs not found\"  }\n")
-            return apache.HTTP_INTERNAL_SERVER_ERROR # find better return code?
+            return apache.HTTP_NOT_FOUND
 
 class AssignJob(Page):
     """
@@ -185,14 +186,18 @@ class AssignJob(Page):
         job   = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
         if job is None:
             self.Write("{ \"Error\" : \"Job not found\"  }\n")
-            return apache.HTTP_INTERNAL_SERVER_ERROR # find better return code?
-        elif job.state is 'w':
+            return apache.HTTP_NOT_FOUND
+        elif job.state is 'w' or job.state is 'e': # allow retry on failed jobs
             job.Assign(self.req.cursor, self.req.get_remote_host(apache.REMOTE_NOLOOKUP))
             self.Write("{\n  \"srcURI\" : \"%s\",\n  \"dstURI\" : \"%s\"\n}\n" % (job.srcURI,job.dstURI))
             return apache.OK
-        else:
+        elif job.state is 'i':
             self.Write("{ \"Error\" : \"Job busy\"  }\n")
-            return apache.HTTP_INTERNAL_SERVER_ERROR # find better return code?
+            return apache.HTTP_CONFLICT # find better return code?
+        elif job.state is 'f':
+            self.Write("{ \"Error\" : \"Job finished\"  }\n")
+            return apache.HTTP_CONFLICT # find better return code?
+        else:
 
 
 class AssignNextJob(Page):
@@ -374,9 +379,9 @@ class JobsMain(Page):
         return html
 
     def Main(self):
-        waiting    = ttc.model.jobs.GetJobs2(self.req.cursor, 'w')
-        inProgress = ttc.model.jobs.GetJobs2(self.req.cursor, 'i')
-        finished   = ttc.model.jobs.GetJobs2(self.req.cursor, 'f')
+        waiting    = ttc.model.jobs.GetJobsByState(self.req.cursor, 'w')
+        inProgress = ttc.model.jobs.GetJobsByState(self.req.cursor, 'i')
+        finished   = ttc.model.jobs.GetJobsByState(self.req.cursor, 'f')
 
         html = """<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 
