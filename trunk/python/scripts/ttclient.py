@@ -263,7 +263,7 @@ def ProcessOneJob(baseURL, transcoderMapping):
     root = tempfile.mkdtemp(prefix = 'ttc-')
 
     arguments = "%s" % urllib.urlencode([("r", r) for r in transcoderMapping.keys()])
-    assignURL = os.path.join(baseURL, "jobs/assign_next_job?", arguments)
+    assignURL = os.path.join(baseURL, "jobs/assign_next_job?%s" % arguments)
     if arguments == "":
         sys.stderr.write('Transcoding error: No transcoders available\n')
         sys.exit(1)
