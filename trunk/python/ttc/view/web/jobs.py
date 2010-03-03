@@ -6,7 +6,7 @@ Job handling (user interface and RPC)
 
 """
 
-import time, urllib, os, stat
+import time, urllib, urllib2, os, stat, urlparse, json
 
 import mod_python.util
 
@@ -18,7 +18,6 @@ import ttc.view.web
 
 from ttc.view.web import Page, EH
 
-import urlparse
 
 class Help(Page):
     """
@@ -88,19 +87,18 @@ class AddOneJob(Page):
             srcURI = form.pop("srcuri") # should uridecode this
             outExt = form.get("format","ogg")
         except:
+            self.req.status = apache.HTTP_BAD_REQUEST 
             self.Write("{\n  \"Error\" : \"Parameter error\",\n  \"Suggestion\" : \"Missing srcuri\"\n}\n\n")
-            return apache.HTTP_BAD_REQUEST 
+            return apache.OK
    
-        if not outExt.startswith("."):
-            outExt = "." + outExt
-
         cfg      = self.req.config
         cache    = cfg["path"]["cache"]
-        inPath   = urlparse.urlparse(srcURI).path
-        basePart = os.path.splitext(os.path.split(inPath)[1])[0]
-        outRoot  = cfg["path"]["storage"]
-        dstPath  = os.path.join(outRoot, basePart + outExt)
-        dstURI   = urlparse.urlunparse(["file","",dstPath,"","",""])
+        try: 
+            dstURI   = ttc.model.jobs.CreateDstURI(cfg, srcURI, self.req.hostname, outExt)
+        except:
+            self.req.status = apache.HTTP_CONFLICT  # Must set status before calling write !
+            self.Write("{\n  \"Error\" : \"Job not created\",\n  \"Suggestion\" : \"Transcoder cannot read user files\",\n  \"srcURI\" : \"%s\"\n}\n" % (srcURI, ))
+            return apache.OK
 
         job = ttc.model.jobs.AddOneJob(self.req.cursor, srcURI, dstURI, cache, form)
         if job:
@@ -108,9 +106,10 @@ class AddOneJob(Page):
             self.req.conn.commit()
             return apache.OK
         else:
+            self.req.status = apache.HTTP_CONFLICT  # Must set status before calling write !
             self.Write("{\n  \"Error\" : \"Job not created\",\n  \"Suggestion\" : \"Maybe duplicate\",\n  \"srcURI\" : \"%s\",\n  \"dstURI\" : \"%s\"\n}\n" % (srcURI, dstURI))
             self.req.conn.rollback()
-            return apache.HTTP_CONFLICT 
+            return apache.OK
 
 class GetJobList(Page):
     """
@@ -140,23 +139,34 @@ class GetJobList(Page):
 
     def Main(self):
         form = dict(mod_python.util.FieldStorage(self.req))
-        state = form.pop("state",None) # should uridecode this
+        state = form.pop("state",None)
 
         cfg      = self.req.config
 
         jobs = ttc.model.jobs.GetJobsByParams(self.req.cursor, state, form )
         self.SendHeader("application/json")
         if jobs:
+            jsonList = []
+            for j in jobs:
+                jsonDict = dict(j.fDict)
+                jsonDict["id"] = j.id
+                jsonList.append(jsonDict) 
+            self.Write(json.dumps(jsonList))
+            """
             self.Write("[")
             d = ",".join(["\n {%s\n  %s\n }" % (
                     "\n  \"id\" : \"%s\"," % (j.id),
                     ",\n  ".join(["\"%s\" : \"%s\"" % (k,v) for k,v in j.fDict.iteritems()])) for j in jobs]) 
             self.Write("%s" % d) 
             self.Write("\n]\n")
+            """
             return apache.OK
         else:
-            self.Write("{ \"Error\" : \"Jobs not found\"  }\n")
-            return apache.HTTP_NOT_FOUND
+            self.req.status = apache.HTTP_NOT_FOUND # Must set status before calling write !
+            self.Write("{ \"Error\" : \"Jobs not found\"  }\n\n\n")
+            return apache.OK
+#            raise apache.SERVER_RETURN(apache.HTTP_NOT_FOUND)
+#            return apache.HTTP_NOT_FOUND
 
 class AssignJob(Page):
     """
@@ -181,23 +191,25 @@ class AssignJob(Page):
         jobID = form["id"].value
  
         cfg   = self.req.config
-
+        myHost = self.req.hostname
         self.SendHeader("application/json")
         job   = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
         if job is None:
+            self.req.status = apache.HTTP_NOT_FOUND # Must set status before calling write !
             self.Write("{ \"Error\" : \"Job not found\"  }\n")
-            return apache.HTTP_NOT_FOUND
-        elif job.state is 'w' or job.state is 'e': # allow retry on failed jobs
+        elif job.state == 'w' or job.state == 'e': # assign waiting jobs and allow retry on failed jobs
             job.Assign(self.req.cursor, self.req.get_remote_host(apache.REMOTE_NOLOOKUP))
-            self.Write("{\n  \"srcURI\" : \"%s\",\n  \"dstURI\" : \"%s\"\n}\n" % (job.srcURI,job.dstURI))
-            return apache.OK
+            self.Write("{\n  \"srcURI\" : \"%s\",\n  \"dstURI\" : \"%s\"\n}\n" % (job.GetDownloadURI(cfg,myHost),job.GetUploadURI(cfg,myHost)))
         elif job.state is 'i':
+            self.req.status = apache.HTTP_CONFLICT # Must set status before calling write !
             self.Write("{ \"Error\" : \"Job busy\"  }\n")
-            return apache.HTTP_CONFLICT # find better return code?
         elif job.state is 'f':
+            self.req.status = apache.HTTP_CONFLICT # Must set status before calling write !
             self.Write("{ \"Error\" : \"Job finished\"  }\n")
-            return apache.HTTP_CONFLICT # find better return code?
         else:
+            self.req.status = apache.HTTP_INTERNAL_SERVER_ERROR # Must set status before calling write !
+            self.Write("{\n  \"Error\" : \"Database error\",\n  \"Suggestion\" : \"Unknown job state %s\"\n}\n\n" % job.state)
+	return apache.OK
 
 
 class AssignNextJob(Page):
@@ -248,7 +260,7 @@ class DownloadJob(Page):
         jobID, part = self.req.uri.split("/")[-2:]
         part = int(part)
 
-        job = ttc.model.jobs.GetJobByID(self.req.cursor, jobID)
+        job = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
 
         srcPath = sorted(job.srcPaths)[part]
 
@@ -262,6 +274,32 @@ class DownloadJob(Page):
                 break
             self.Write(s)
 
+        return apache.OK
+
+class DownloadJob2(Page):
+    """
+
+    Used by clients to download a job
+    
+    """
+
+    path = "/ttc/jobs/download2"
+
+    showDebug = False
+
+    def Main(self):
+        (jobID,) = self.req.uri.split("/")[-1:]
+        job = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
+        f = urllib2.urlopen(job.srcURI)
+        l = f.info().getheader("content-length")
+        self.req.headers_out["Content-Length"] = l
+        self.SendHeader("application/octet-stream")
+
+        while True:
+            s = f.read(128 * 1024)
+            if not s:
+                break
+            self.Write(s)
         return apache.OK
 
 class UploadJob(Page):
@@ -306,6 +344,58 @@ class UploadJob(Page):
         f.close()
 
         os.rename(job.dstPath + ".ttc", job.dstPath)
+
+        job.SetFinished(self.req.cursor)
+
+        return apache.OK
+    
+class UploadJob2(Page):
+    """
+
+    Used by clients to upload a job
+    
+    """
+
+    path = "/ttc/jobs/upload2"
+
+    showDebug = False
+
+    def Main(self):
+        jobID = self.req.uri.split("/")[-1]
+
+        if jobID == 0:
+          return apache.HTTP_NOT_FOUND
+        job = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
+        if not job:
+          return apache.HTTP_NOT_FOUND
+        
+        if 'content-length' in self.req.headers_in: 
+          fSize = int(self.req.headers_in['content-length'])
+        else:
+          return apache.HTTP_LENGTH_REQUIRED
+        
+        cfg      = self.req.config
+        try:
+          dstPath  = job.GetUploadPath(cfg)
+        except:
+          self.SendHeader("application/json")
+          self.req.status = apache.HTTP_CONFLICT  # Must set status before calling write !
+          self.Write("{\n  \"Error\" : \"Error retrieving directory\",\n  \"Suggestion\" : \"No permission\"\n}\n")
+          return apache.OK
+        try:
+          f = open(dstPath + ".ttc", "wb")
+        except:
+          return apache.HTTP_NOT_FOUND
+
+        bytesReceived = 0
+        while bytesReceived < fSize:
+            s = self.req.read(min(1024 * 128, fSize - bytesReceived))
+            f.write(s)
+            bytesReceived += len(s)
+
+        f.close()
+
+        os.rename(dstPath + ".ttc", dstPath)
 
         job.SetFinished(self.req.cursor)
 

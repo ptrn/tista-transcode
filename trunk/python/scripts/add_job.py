@@ -11,14 +11,16 @@ import sys, os, re
 
 import psycopg2
 
+import urlparse
+
 import ttc.config, ttc.model.jobs
 
-import urlparse
+
 
 def Main():  
     try:
-        cfgPath, outRoot, outExt, inPath = sys.argv[1:5]
-        fArgs = sys.argv[5:]
+        cfgPath, outExt, inPath = sys.argv[1:4]
+        fArgs = sys.argv[4:]
     except ValueError:
         sys.stderr.write("Usage: %s <config> <out root> <out ext.> <in path> <format arg.> ... \n" % sys.argv[0])
         sys.exit(1)
@@ -34,11 +36,8 @@ def Main():
     conn = psycopg2.connect("dbname=%s" % (dbName,))
     cursor = conn.cursor()
 
-    basePart = os.path.splitext(os.path.split(inPath)[1])[0]
-    dstPath = os.path.join(outRoot, basePart + outExt)
-
     srcURI = urlparse.urlunparse(["file","",inPath,"","",""])
-    dstURI = urlparse.urlunparse(["file","",dstPath,"","",""])
+    dstURI = ttc.model.jobs.CreateDstURI(cfg, srcURI, outExt)
     fDict  = dict([(arg.split("=") ) for arg in fArgs])
         
     print srcURI, "  ", dstURI
@@ -47,8 +46,10 @@ def Main():
         job.Insert(cursor, cfg["path"]["cache"])
         conn.commit()
     except psycopg2.IntegrityError:
-        sys.stderr.write('WARNING: Duplicate job: %s\n' % dstPath)
+        sys.stderr.write('WARNING: Duplicate job: %s\n' % dstURI)
         conn.rollback()
+
+    print "will be uploaded to %s" % job.GetUploadPath(cfg) 
 
 if __name__ == "__main__":
     Main()

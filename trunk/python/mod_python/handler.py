@@ -55,14 +55,16 @@ def handler(req):
     req.config = cfg
     req.conn = dbConnection
     req.cursor = dbConnection.cursor()
-
-    if pathMapping.has_key(req.uri):
-        method = pathMapping[req.uri]
-    elif req.uri.startswith("/ttc/jobs/upload/"):
-        method = UploadJob
-    elif req.uri.startswith("/ttc/jobs/download/"):
-        method = DownloadJob
-    else: 
+    uri = req.uri
+    pathlist = uri.split("/")
+    chop = 0
+    while(uri):
+        if pathMapping.has_key(uri):
+            method = pathMapping[uri]
+            break
+        chop += 1
+        uri = "/".join(pathlist[0:-chop])       
+    else:
         return apache.HTTP_NOT_FOUND
 
     try:

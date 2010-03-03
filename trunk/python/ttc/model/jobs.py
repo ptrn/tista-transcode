@@ -8,7 +8,7 @@ manipulating users. Also includes authentication functions.
 
 """
 
-import os, stat, tempfile, subprocess, shutil
+import os, stat, tempfile, subprocess, shutil, urlparse
 
 import psycopg2, PIL.Image, PIL.ImageOps
 from psycopg2.extensions import adapt
@@ -239,7 +239,7 @@ class Job2(Job):
         Returns a string describing the transcoding procedure
     
         """
-        return "%s/%s" % (self.fDict["format"], self.fDict.get("vcodec","?"))
+        return "%s/%s" % (self.fDict.get("format","?"), self.fDict.get("vcodec","?"))
 
     def Insert(self, cursor, cachePath):
         """
@@ -270,13 +270,87 @@ class Job2(Job):
 
     def Assign(self, cursor, ip):
         """
-        Returns details of requested job and marks it as active. If job is not
-        available, None is returned.
+        Marks job as active. Client will transcoding.
         """
         self.SetInProgress(cursor, ip)
         self.UpdateProgress(cursor, 0)
 
+    def GetDownloadURI(self, cfg, outHost):
+        """
+        In (rare) cases when the source item is available as a file in the servers file storage,
+        but not in the transclients, we construct a special http url for downloading  
+        """
+        clientSchm = cfg["network"]["clientscheme"]
+        if self.srcURI.startswith("file") and clientSchm.startswith("http"):
+            srcPath = os.path.join("/ttc/jobs/download2", self.id)
+            return urlparse.urlunparse(["http",outHost,srcPath,"","",""])
+        return self.srcURI 
 
+    def GetUploadURI(self, cfg, outHost):
+        """
+        In cases when the destination item is available as a file in the servers file storage,
+        but not in the transclients, we construct a special http url for uploading  
+        """
+        clientSchm = cfg["network"]["clientscheme"]
+        outRoot  = cfg["path"]["base"]
+        outStore = cfg["path"]["storage"]
+        outBase  = os.path.join(outRoot,outStore)
+        if self.dstURI.startswith("http") and clientSchm == "file":
+            inParsed = urlparse.urlparse(self.dstURI)
+            inPath   = inParsed.path
+            basePart = os.path.basename(inPath)
+            dstPath  = os.path.join(outBase, basePart)
+            return urlparse.urlunparse(["file","",dstPath,"","",""])
+        elif clientSchm == "http":
+            dstPath = os.path.join("/ttc/jobs/upload2", self.id)
+            return urlparse.urlunparse(["http",outHost,dstPath,"","",""])
+        return self.dstURI 
+
+    def GetUploadPath(self, cfg):
+        """
+        Return path of the location were a file uploaded from a client will be stored
+        """
+        dstPath =  urlparse.urlparse(self.dstURI).path
+        if self.dstURI.startswith("file"): # Extract destination path from file URI
+            dstDir = os.path.dirname(dstPath)
+        elif self.dstURI.startswith("http"):  # Fetch path from http uri, append this to webserver root
+            outRoot  = cfg["path"]["base"]
+            outStore = cfg["path"]["storage"]
+            outBase  = os.path.join(outRoot,outStore)
+            basePart = os.path.basename(dstPath)
+            dstPath  = os.path.join(outBase, basePart)
+            dstDir   = outBase
+        else:
+            dstDir   = outBase
+        if not os.path.exists(dstDir):
+            os.makedirs(dstDir)
+        return dstPath
+
+
+def CreateDstURI(cfg, srcURI, myHost, outExt):
+    """
+    Create a destination uri, based on the source uri, the availabilty of the transcoders file storage, the transcoding host and
+    the type of the transcoded item. 
+    """
+    if not outExt.startswith("."):
+        outExt = "." + outExt
+    userSchm = cfg["network"]["userscheme"]
+    inParsed = urlparse.urlparse(srcURI)
+    if inParsed.scheme == "file" and userSchm != "file":
+        raise Exception
+    inPath   = inParsed.path
+    basePart = os.path.splitext(os.path.split(inPath)[1])[0]
+    outStore = cfg["path"]["storage"]
+    if userSchm == "file":
+        outRoot  = cfg["path"]["base"]
+        outHost  = ""
+    else:
+        outRoot  = ""
+        outHost  = myHost
+    dstPath  = os.path.join(outRoot, outStore, basePart + outExt)
+    dstURI   = urlparse.urlunparse([userSchm,outHost,dstPath,"","",""])
+    return dstURI
+ 
 def AddOneJob(cursor, srcURI, dstURI, cache, arguments):
     """
 
@@ -388,6 +462,7 @@ def GetJobByID2(cursor, jobID):
         return None
 
     return job
+
 
 
 
