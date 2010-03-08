@@ -124,3 +124,22 @@ class Page(object):
         """
 
         self.req.write(s)
+
+    def ReturnError(self, status, error, suggestion):
+        """
+
+        Set HTTP error status and return json-formatted error messages to the client.
+
+        status     : HTTP return codes (RFC 2616)
+        error      : string describing error situation
+        suggestion : string indicating reason or problem fix
+        Returns    : HTTP OK (200) to be transmitted to surrounding layer
+        Used by    : http-handlers in view.web.jobs
+
+        """
+
+        self.SendHeader("application/json")
+        self.req.status = status  # Must set status before calling write !
+        self.Write("{\n  \"Error\" : \"%s\",\n  \"Suggestion\" : \"%s\"\n}\n" % (error, suggestion))
+        return apache.OK
+
