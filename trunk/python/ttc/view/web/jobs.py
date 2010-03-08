@@ -364,28 +364,23 @@ class UploadJob2(Page):
         jobID = self.req.uri.split("/")[-1]
 
         if jobID == 0:
-          return apache.HTTP_NOT_FOUND
+          return ReturnError(self, apache.HTTP_NOT_FOUND, "Job not found", "Missing job id")
         job = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
         if not job:
-          return apache.HTTP_NOT_FOUND
+          return ReturnError(self, apache.HTTP_NOT_FOUND, "Job not found", "Job deleted from transcoder database")
         
         if 'content-length' in self.req.headers_in: 
           fSize = int(self.req.headers_in['content-length'])
         else:
-          return apache.HTTP_LENGTH_REQUIRED
-        
-        cfg      = self.req.config
+          return ReturnError(self, apache.HTTP_LENGTH_REQUIRED, "Cannot receive data", "No content-length header")
         try:
-          dstPath  = job.GetUploadPath(cfg)
+          dstPath  = job.GetUploadPath(self.req.config)
         except:
-          self.SendHeader("application/json")
-          self.req.status = apache.HTTP_CONFLICT  # Must set status before calling write !
-          self.Write("{\n  \"Error\" : \"Error retrieving directory\",\n  \"Suggestion\" : \"No permission\"\n}\n")
-          return apache.OK
+          return ReturnError(self, apache.HTTP_CONFLICT, "Error retrieving directory", "No permission")
         try:
           f = open(dstPath + ".ttc", "wb")
         except:
-          return apache.HTTP_NOT_FOUND
+          return ReturnError(self, apache.HTTP_NOT_FOUND, "Error writing result file", "No permission")
 
         bytesReceived = 0
         while bytesReceived < fSize:
@@ -401,6 +396,27 @@ class UploadJob2(Page):
 
         return apache.OK
     
+class FinishJob(Page):
+    """
+
+    Used by clients to inform server that a job is finished, when no upload is needed
+    
+    """
+
+    path = "/ttc/jobs/finish"
+
+    showDebug = False
+
+    def Main(self):
+        jobID = self.req.uri.split("/")[-1]
+        if jobID == 0:
+          return ReturnError(self, apache.HTTP_NOT_FOUND, "Job not found", "Missing job id")
+        job = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
+        if not job:
+          return ReturnError(self, apache.HTTP_NOT_FOUND, "Job not found", "Job deleted from transcoder database")
+        job.SetFinished(self.req.cursor)
+        return apache.OK
+
 class UpdateProgress(Page):
     """
 
