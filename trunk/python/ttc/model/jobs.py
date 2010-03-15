@@ -326,6 +326,14 @@ class Job2(Job):
             os.makedirs(dstDir)
         return dstPath
 
+    def GetBasics(self):
+        return "{\n  \"id\" : \"%s\", \n  \"state\" : \"%s\", \n  \"srcURI\" : \"%s\", \n  \"dstURI\" : \"%s\"\n}\n" % (
+                self.id,
+                self.state,
+                self.srcURI,
+                self.dstURI)
+
+
 
 def CreateDstURI(cfg, srcURI, myHost, outExt):
     """
