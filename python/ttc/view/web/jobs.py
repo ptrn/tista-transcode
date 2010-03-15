@@ -195,23 +195,54 @@ class AssignJob(Page):
         self.SendHeader("application/json")
         job   = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
         if job is None:
-            self.req.status = apache.HTTP_NOT_FOUND # Must set status before calling write !
-            self.Write("{ \"Error\" : \"Job not found\"  }\n")
+            return ReturnError(self, apache.HTTP_NOT_FOUND, "Job not found", "Job ID not in database")
         elif job.state == 'w' or job.state == 'e': # assign waiting jobs and allow retry on failed jobs
             job.Assign(self.req.cursor, self.req.get_remote_host(apache.REMOTE_NOLOOKUP))
             self.Write("{\n  \"srcURI\" : \"%s\",\n  \"dstURI\" : \"%s\"\n}\n" % (job.GetDownloadURI(cfg,myHost),job.GetUploadURI(cfg,myHost)))
         elif job.state is 'i':
-            self.req.status = apache.HTTP_CONFLICT # Must set status before calling write !
-            self.Write("{ \"Error\" : \"Job busy\"  }\n")
+            return ReturnError(self, apache.HTTP_CONFLICT, "Cannot assign job", "Job busy")
         elif job.state is 'f':
-            self.req.status = apache.HTTP_CONFLICT # Must set status before calling write !
-            self.Write("{ \"Error\" : \"Job finished\"  }\n")
+            return ReturnError(self, apache.HTTP_CONFLICT, "Cannot assign job", "Job finished")
         else:
-            self.req.status = apache.HTTP_INTERNAL_SERVER_ERROR # Must set status before calling write !
-            self.Write("{\n  \"Error\" : \"Database error\",\n  \"Suggestion\" : \"Unknown job state %s\"\n}\n\n" % job.state)
+            return ReturnError(self, apache.HTTP_INTERNAL_SERVER_ERROR, "Database error", "Unknown job state %s" % job.state)
 	return apache.OK
 
+class GetJobInfo(Page):
+    """
 
+    Get info from the job database.
+    HTTP-query arguments:
+      id: identifier from the previously transmitted list of available jobs. 32 hexadecimal digits
+    Returns:
+      If job is available: Job properties and state in JSON format
+        id
+        state
+        srcURI
+        dstURI
+      If job not available: Status code / JSON-description
+    Used by  : Transcoding client
+
+    """
+   
+    path = "/ttc/jobs/get_job_info"
+    args = 'id=&lt;job id&gt;'
+
+    showDebug = False
+
+    def Main(self):
+        form  = mod_python.util.FieldStorage(self.req)
+        jobID = form["id"].value
+ 
+        cfg   = self.req.config
+        myHost = self.req.hostname
+        job   = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
+        if job is None:
+            return self.ReturnError(apache.HTTP_NOT_FOUND, "Job not found", "Job ID not in database")
+        else:
+            self.SendHeader("application/json")
+            self.Write(job.GetBasics())
+            return apache.OK
+ 
 class AssignNextJob(Page):
     """
 
