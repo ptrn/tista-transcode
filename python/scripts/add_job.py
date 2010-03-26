@@ -37,11 +37,11 @@ def Main():
     cursor = conn.cursor()
 
     srcURI = urlparse.urlunparse(["file","",inPath,"","",""])
-    dstURI = ttc.model.jobs.CreateDstURI(cfg, srcURI, outExt)
+    dstURI = ttc.model.jobs.CreateDstURI(cfg, srcURI, "", outExt)
     fDict  = dict([(arg.split("=") ) for arg in fArgs])
         
     print srcURI, "  ", dstURI
-    job = ttc.model.jobs.Job2(None, srcURI, dstURI, fDict)
+    job = ttc.model.jobs.Job(None, srcURI, dstURI, fDict)
     try:
         job.Insert(cursor, cfg["path"]["cache"])
         conn.commit()

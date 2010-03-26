@@ -41,7 +41,9 @@ class Transcoder(object):
       
     def UpdateProgress(self, jobID, numBytes):
         url = "%sjobs/update?%s" % (self.baseURL, urllib.urlencode((("id", jobID), ("b", numBytes))))
-    
+        urllib2.urlopen(url)
+        print url
+
     def Transcode(self, root, jobID, inPath, options={}):
         outPath = os.path.join(root, "transcoded")
 
@@ -53,11 +55,11 @@ class Transcoder(object):
             retCode = proc.poll()
             if retCode != None:
                 break
-
             now = time.time()
             if now - lastUpdate >= 60:
                 if os.path.exists(outPath):
-                    self.UpdateProgress(jobID, os.stat(outPath)[stat.ST_SIZE])
+                    part = os.stat(outPath)[stat.ST_SIZE]
+                    self.UpdateProgress(jobID, part)
                 lastUpdate = now
             
             time.sleep(1)
@@ -115,7 +117,8 @@ class Transcoder(object):
                 shutil.copy(inPath,outPath)
             except Exception as why :
                 raise TTUploadError, "Error while copying to destination file: %s " % why
-            urllib2.urlopen("%sjobs/finish/%s" % (self.baseURL,jobID))
+            arg = "%s" % urllib.urlencode([("id",jobID)])
+            urllib2.urlopen("%sjobs/finish?%s" % (self.baseURL,arg))
             return
 
         host = parsedURI.hostname
@@ -346,15 +349,25 @@ def ProcessOneJob(baseURL, transcoderList):
     try:
         inPath = transcoder.Download(root, srcURI)
         print inPath
-        transcoder.Transcode(root, jobID, inPath, d)
-    except TTTranscodingError, why:
-        raise
+    except Exception as e:
+        arg = "%s" % urllib.urlencode([("id",jobID)])
+        urllib2.urlopen("%sjobs/error?%s" % (baseURL,arg))
+        raise TTDownloadError, e
     else:
+      try:
+        transcoder.Transcode(root, jobID, inPath, d)
+      except Exception as e:
+        arg = "%s" % urllib.urlencode([("id",jobID)])
+        urllib2.urlopen("%sjobs/error?%s" % (baseURL,arg))
+        raise TTTranscodingError, e
+      else:
         try:
             transcoder.Upload(root, dstURI, jobID)
-        except socket.error:
-            raise TTNoJobsAvailableError, 'Upload error: Job was not submitted'
-
+        except Exception as e:
+            arg = "%s" % urllib.urlencode([("id",jobID)])
+            urllib2.urlopen("%sjobs/error?%s" % (baseURL,arg))
+            raise TTUploadError, e
+ 
     shutil.rmtree(root)
     
 
@@ -405,12 +418,12 @@ def Main():
             time.sleep(300)
         except TTDownloadError, why:
             sys.stderr.write("Download error. %s\n" % why)
-            time.sleep(300)
+            time.sleep(10)
         except TTUploadError, why:
             sys.stderr.write("Upload error. %s \n" % why)
-            time.sleep(300)
+            time.sleep(10)
         except TTTranscodingError, why:
-            sys.stderr.write("Transcoding error: Job was not submitted. %s\n" % why)
+            sys.stderr.write("Transcoding error: Job did not finish. %s\n" % why)
         else:
             time.sleep(10)
 
