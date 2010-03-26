@@ -42,7 +42,6 @@ class Transcoder(object):
     def UpdateProgress(self, jobID, numBytes):
         url = "%sjobs/update?%s" % (self.baseURL, urllib.urlencode((("id", jobID), ("b", numBytes))))
         urllib2.urlopen(url)
-        print url
 
     def Transcode(self, root, jobID, inPath, options={}):
         outPath = os.path.join(root, "transcoded")
@@ -328,7 +327,7 @@ def ProcessOneJob(baseURL, transcoderList):
         l.remove(d)
         arg = "%s" % urllib.urlencode([("id",d[u"id"])])
         assignURL = os.path.join(baseURL, "jobs/assign_job?%s" % arg)
-        print assignURL
+#        print assignURL
         try:
             handle  = urllib2.urlopen(assignURL)
             jobDesc = handle.read().strip()
@@ -343,12 +342,11 @@ def ProcessOneJob(baseURL, transcoderList):
     srcURI = ad[u"srcURI"]
     dstURI = ad[u"dstURI"]
 
-    print "%s will transcode from %s to %s" % (recipe,srcURI,dstURI)
-    
+    sys.stderr.write("%s will transcode from %s to %s" % (recipe,srcURI,dstURI))
 
     try:
         inPath = transcoder.Download(root, srcURI)
-        print inPath
+#        print inPath
     except Exception as e:
         arg = "%s" % urllib.urlencode([("id",jobID)])
         urllib2.urlopen("%sjobs/error?%s" % (baseURL,arg))
