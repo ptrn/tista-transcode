@@ -182,7 +182,7 @@ class AssignJob(Page):
     """
    
     path = "/ttc/jobs/assign_job"
-    args = 'id=&lt;job id&gt;'
+    args = 'id=xxxxxx...'
 
     showDebug = False
 
@@ -193,7 +193,7 @@ class AssignJob(Page):
         cfg   = self.req.config
         myHost = self.req.hostname
         self.SendHeader("application/json")
-        job   = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
+        job   = ttc.model.jobs.GetJobByID(self.req.cursor, jobID)
         if job is None:
             return ReturnError(self, apache.HTTP_NOT_FOUND, "Job not found", "Job ID not in database")
         elif job.state == 'w' or job.state == 'e': # assign waiting jobs and allow retry on failed jobs
@@ -225,7 +225,7 @@ class GetJobInfo(Page):
     """
    
     path = "/ttc/jobs/get_job_info"
-    args = 'id=&lt;job id&gt;'
+    args = 'id=xxxxxx...'
 
     showDebug = False
 
@@ -235,7 +235,7 @@ class GetJobInfo(Page):
  
         cfg   = self.req.config
         myHost = self.req.hostname
-        job   = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
+        job   = ttc.model.jobs.GetJobByID(self.req.cursor, jobID)
         if job is None:
             return self.ReturnError(apache.HTTP_NOT_FOUND, "Job not found", "Job ID not in database")
         else:
@@ -243,39 +243,6 @@ class GetJobInfo(Page):
             self.Write(job.GetBasics())
             return apache.OK
  
-class AssignNextJob(Page):
-    """
-
-    Used by clients to be assigned a new job
-    
-    """
-
-    path = "/ttc/jobs/assign_next_job"
-    args = 'r=recipe'
-
-    showDebug = False
-
-    def Main(self):
-        form = mod_python.util.FieldStorage(self.req)
-
-        if type(form["r"]) == list:
-            recipes = [e.value for e in form["r"]]
-        else:
-            recipes = [form["r"].value]
-
-        job = ttc.model.jobs.AssignNextJob(self.req.cursor, self.req.get_remote_host(apache.REMOTE_NOLOOKUP), recipes)
-
-        self.SendHeader("text/plain")
-
-        if job:
-            self.Write("%s %s %i\n" % (job.id, job.recipe, len(job.srcPaths)))
-        else:
-            return apache.HTTP_INTERNAL_SERVER_ERROR 
-        """
-            should return JSON error description and HTTP error status
-        """
-        return apache.OK
-
 class DownloadJob(Page):
     """
 
@@ -283,44 +250,13 @@ class DownloadJob(Page):
     
     """
 
-    path = None #"/ttc/jobs/download"
-
-    showDebug = False
-
-    def Main(self):
-        jobID, part = self.req.uri.split("/")[-2:]
-        part = int(part)
-
-        job = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
-
-        srcPath = sorted(job.srcPaths)[part]
-
-        self.req.headers_out["Content-Length"] = str(os.stat(srcPath)[stat.ST_SIZE])
-        self.SendHeader("application/octet-stream")
-
-        f = open(srcPath, "rb")
-        while True:
-            s = f.read(128 * 1024)
-            if not s:
-                break
-            self.Write(s)
-
-        return apache.OK
-
-class DownloadJob2(Page):
-    """
-
-    Used by clients to download a job
-    
-    """
-
-    path = "/ttc/jobs/download2"
+    path = "/ttc/jobs/download"
 
     showDebug = False
 
     def Main(self):
         (jobID,) = self.req.uri.split("/")[-1:]
-        job = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
+        job = ttc.model.jobs.GetJobByID(self.req.cursor, jobID)
         f = urllib2.urlopen(job.srcURI)
         l = f.info().getheader("content-length")
         self.req.headers_out["Content-Length"] = l
@@ -340,54 +276,7 @@ class UploadJob(Page):
     
     """
 
-    path = None #"/ttc/jobs/upload"
-
-    showDebug = False
-
-    def Main(self):
-        jobID = self.req.uri.split("/")[-1]
-
-        if jobID == 0:
-          return apache.HTTP_NOT_FOUND
-        job = ttc.model.jobs.GetJobByID(self.req.cursor, jobID)
-        if not job:
-          return apache.HTTP_NOT_FOUND
-
-        if 'content-length' in self.req.headers_in: 
-          fSize = int(self.req.headers_in['content-length'])
-        else:
-          return apache.HTTP_LENGTH_REQUIRED
-
-        dirPart = os.path.split(job.dstPath)[0]
-        if not os.path.exists(dirPart):
-            os.makedirs(dirPart)
-        try:
-          f = open(job.dstPath + ".ttc", "wb")
-        except:
-          return apache.HTTP_NOT_FOUND
-
-        bytesReceived = 0
-        while bytesReceived < fSize:
-            s = self.req.read(min(1024 * 128, fSize - bytesReceived))
-            f.write(s)
-            bytesReceived += len(s)
-
-        f.close()
-
-        os.rename(job.dstPath + ".ttc", job.dstPath)
-
-        job.SetFinished(self.req.cursor)
-
-        return apache.OK
-    
-class UploadJob2(Page):
-    """
-
-    Used by clients to upload a job
-    
-    """
-
-    path = "/ttc/jobs/upload2"
+    path = "/ttc/jobs/upload"
 
     showDebug = False
 
@@ -396,7 +285,7 @@ class UploadJob2(Page):
 
         if jobID == 0:
           return ReturnError(self, apache.HTTP_NOT_FOUND, "Job not found", "Missing job id")
-        job = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
+        job = ttc.model.jobs.GetJobByID(self.req.cursor, jobID)
         if not job:
           return ReturnError(self, apache.HTTP_NOT_FOUND, "Job not found", "Job deleted from transcoder database")
         
@@ -435,17 +324,42 @@ class FinishJob(Page):
     """
 
     path = "/ttc/jobs/finish"
+    args = 'id=xxxxxx...'
 
     showDebug = False
 
     def Main(self):
-        jobID = self.req.uri.split("/")[-1]
+        form = mod_python.util.FieldStorage(self.req)
+        jobID = form["id"].value
         if jobID == 0:
           return ReturnError(self, apache.HTTP_NOT_FOUND, "Job not found", "Missing job id")
-        job = ttc.model.jobs.GetJobByID2(self.req.cursor, jobID)
+        job = ttc.model.jobs.GetJobByID(self.req.cursor, jobID)
         if not job:
-          return ReturnError(self, apache.HTTP_NOT_FOUND, "Job not found", "Job deleted from transcoder database")
+          return self.ReturnError(apache.HTTP_NOT_FOUND, "Job not found", "Job deleted from transcoder database")
         job.SetFinished(self.req.cursor)
+        return apache.OK
+
+class ErrorJob(Page):
+    """
+
+    Used by clients to inform server that a job has terminated irregularly
+    
+    """
+
+    path = "/ttc/jobs/error"
+    args = 'id=xxxxxx...'
+
+    showDebug = False
+
+    def Main(self):
+        form = mod_python.util.FieldStorage(self.req)
+        jobID = form["id"].value
+        if jobID == 0:
+          return ReturnError(self, apache.HTTP_NOT_FOUND, "Job not found", "Missing job id")
+        job = ttc.model.jobs.GetJobByID(self.req.cursor, jobID)
+        if not job:
+          return self.ReturnError(apache.HTTP_NOT_FOUND, "Job not found", "Job deleted from transcoder database")
+        job.SetError(self.req.cursor)
         return apache.OK
 
 class UpdateProgress(Page):
@@ -456,12 +370,12 @@ class UpdateProgress(Page):
     """
 
     path = "/ttc/jobs/update"
+    args = 'id=xxxxxx...&b=nn'
 
     showDebug = False
 
     def Main(self):
         form = mod_python.util.FieldStorage(self.req)
-
         jobID = form["id"].value
         numBytes = int(form["b"].value)
 
@@ -472,6 +386,7 @@ class UpdateProgress(Page):
 
 class JobsSnapshot(Page):
     path = "/ttc/jobs/snapshot"
+    args = 'id=xxxxxx...'
 
     showDebug = False
 
@@ -502,7 +417,7 @@ class JobsMain(Page):
 
     def JobToHTML(self, job):
         if job.workerRelativeProgress != None:
-            sizeS = " %i%%" % job.workerRelativeProgress
+            sizeS = " %i bytes" % job.workerRelativeProgress
         else:
             sizeS = ""
 
@@ -519,6 +434,7 @@ class JobsMain(Page):
         waiting    = ttc.model.jobs.GetJobsByState(self.req.cursor, 'w')
         inProgress = ttc.model.jobs.GetJobsByState(self.req.cursor, 'i')
         finished   = ttc.model.jobs.GetJobsByState(self.req.cursor, 'f')
+        failed     = ttc.model.jobs.GetJobsByState(self.req.cursor, 'e')
 
         html = """<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 
@@ -561,20 +477,25 @@ class JobsMain(Page):
   <body>
     <h1>Jobs</h1>
 
-    <h2>In progress</h2>
+    <h2>Waiting</h2>
 
     %s
 
-    <h2>Waiting</h2>
+    <h2>In progress</h2>
 
     %s
 
     <h2>Finished</h2>
 
     %s
+
+    <h2>Erroneous</h2>
+
+    %s
+
   </body>
 </html>
-""" % (self.JobsToHTML(inProgress), self.JobsToHTML(waiting), self.JobsToHTML(finished))
+""" % (self.JobsToHTML(waiting), self.JobsToHTML(inProgress), self.JobsToHTML(finished), self.JobsToHTML(failed))
 
         self.SendHeader()
         self.Write(html)
