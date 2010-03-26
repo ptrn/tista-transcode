@@ -43,3 +43,5 @@ create table Parameters (
 -- Permissions
 grant insert, select, update on Jobs to "www-data";
 grant insert, select, update on Parameters to "www-data";
+grant insert, select, update on Jobs to "tord";
+grant insert, select, update on Parameters to "tord";
