@@ -242,7 +242,7 @@ class TheoraTranscoder(Transcoder):
                 self.recipe = "Theora"
 
     def CanDo(self, options):
-        if options.get('format','') == 'ogg': return True 
+        if options.get('format','ogg') == 'ogg': return True   # If no other format is given, default to ogg
         return False
           
     def GetCMD(self, inPath, outPath, options={}):
@@ -310,7 +310,7 @@ def ProcessOneJob(baseURL, transcoderList):
     root = tempfile.mkdtemp(prefix = 'ttc-')
 
 #    arguments = "%s" % urllib.urlencode([("format", f) for f in transcoderMapping.keys()])
-    
+
     getjobURL = os.path.join(baseURL, "jobs/get_job_list?state=w")
     try:
         handle  = urllib2.urlopen(getjobURL)
