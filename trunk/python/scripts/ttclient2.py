@@ -1,6 +1,6 @@
 #! /usr/bin/python
 
-import sys, urllib, urllib2, time, tempfile, os, httplib, stat, shutil, socket, subprocess, json, urlparse
+import sys, urllib, urllib2, time, tempfile, os, httplib, stat, shutil, socket, subprocess, json, urlparse, datetime
 
 # *** Should be imported from tt.py
 class TTError(Exception):
@@ -77,7 +77,7 @@ class Transcoder(object):
 
         fSize  = int(fIn.headers['Content-Length'])
 
-        sys.stderr.write("Downloading ")
+        sys.stderr.write(datetime.datetime.now().strftime("[%d %b %H:%M] ttclient ") + "Downloading ")
 
         prevTick = -100
         bytesWritten = 0
@@ -342,7 +342,7 @@ def ProcessOneJob(baseURL, transcoderList):
     srcURI = ad[u"srcURI"]
     dstURI = ad[u"dstURI"]
 
-    sys.stderr.write("%s will transcode from %s to %s" % (recipe,srcURI,dstURI))
+    sys.stderr.write(datetime.datetime.now().strftime("[%d %b %H:%M] ttclient ") + "%s will transcode from %s to %s" % (recipe,srcURI,dstURI))
 
     try:
         inPath = transcoder.Download(root, srcURI)
@@ -412,16 +412,16 @@ def Main():
         try:
             ProcessOneJob(baseURL, transcoderList)
         except TTNoJobsAvailableError:
-            sys.stderr.write("No jobs available\n")
+            sys.stderr.write(datetime.datetime.now().strftime("[%d %b %H:%M] ttclient ") + "No jobs available\n")
             time.sleep(300)
         except TTDownloadError, why:
-            sys.stderr.write("Download error. %s\n" % why)
+            sys.stderr.write(datetime.datetime.now().strftime("[%d %b %H:%M] ttclient ") + "Download error. %s\n" % why)
             time.sleep(10)
         except TTUploadError, why:
-            sys.stderr.write("Upload error. %s \n" % why)
+            sys.stderr.write(datetime.datetime.now().strftime("[%d %b %H:%M] ttclient ") + "Upload error. %s \n" % why)
             time.sleep(10)
         except TTTranscodingError, why:
-            sys.stderr.write("Transcoding error: Job did not finish. %s\n" % why)
+            sys.stderr.write(datetime.datetime.now().strftime("[%d %b %H:%M] ttclient ") + "Transcoding error: Job did not finish. %s\n" % why)
         else:
             time.sleep(10)
 

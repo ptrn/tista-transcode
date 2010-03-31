@@ -185,11 +185,12 @@ class Job(object):
         return dstPath
 
     def GetBasics(self):
-        return "{\n  \"id\" : \"%s\", \n  \"state\" : \"%s\", \n  \"srcURI\" : \"%s\", \n  \"dstURI\" : \"%s\"\n}\n" % (
+        return "{\n  \"id\" : \"%s\", \n  \"state\" : \"%s\", \n  \"srcURI\" : \"%s\", \n  \"dstURI\" : \"%s\", \n  \"progress\" : \"%s\"\n}\n" % (
                 self.id,
                 self.state,
                 self.srcURI,
-                self.dstURI)
+                self.dstURI,
+                self.workerRelativeProgress)
 
 
 
