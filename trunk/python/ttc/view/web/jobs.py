@@ -54,6 +54,9 @@ class AddOneJob(Page):
     HTTP-query arguments:
       src:
         srcuri   : URI, file or http, of an item that should be transcoded
+        imguri   : URI, file or http, of an image that should be added at the front and back of the resulting item
+        imgduration : length in seconds (with decimals) of the added image
+        separation  = length in seconds (with decimals) of the periode between the image and the video
       destination format:
         format      
         vcodec     
@@ -85,6 +88,9 @@ class AddOneJob(Page):
         try:
             form = dict(mod_python.util.FieldStorage(self.req))
             srcURI = form.pop("srcuri") # should uridecode this
+            imgURI = form.pop("imguri") # should uridecode this
+            imgDur = float(form.pop("imgduration","1.0"))
+            sepDur = float(form.pop("separation","1.0"))
             outExt = form.get("format","ogg")
         except:
             self.req.status = apache.HTTP_BAD_REQUEST 
@@ -100,7 +106,7 @@ class AddOneJob(Page):
             self.Write("{\n  \"Error\" : \"Job not created\",\n  \"Suggestion\" : \"Transcoder cannot read user files\",\n  \"srcURI\" : \"%s\"\n}\n" % (srcURI, ))
             return apache.OK
 
-        job = ttc.model.jobs.AddOneJob(self.req.cursor, srcURI, dstURI, cache, form)
+        job = ttc.model.jobs.AddOneJob(self.req.cursor, srcURI, dstURI, imgURI, imgDur, sepDur, cache, form)
         if job:
             self.Write("{\n  \"id\" : \"%s\",\n  \"srcURI\" : \"%s\",\n  \"dstURI\" : \"%s\"\n}\n" % (job.id,job.srcURI,job.dstURI))
             self.req.conn.commit()
@@ -198,7 +204,7 @@ class AssignJob(Page):
             return ReturnError(self, apache.HTTP_NOT_FOUND, "Job not found", "Job ID not in database")
         elif job.state == 'w' or job.state == 'e': # assign waiting jobs and allow retry on failed jobs
             job.Assign(self.req.cursor, self.req.get_remote_host(apache.REMOTE_NOLOOKUP))
-            self.Write("{\n  \"srcURI\" : \"%s\",\n  \"dstURI\" : \"%s\"\n}\n" % (job.GetDownloadURI(cfg,myHost),job.GetUploadURI(cfg,myHost)))
+            self.Write("{\n  \"srcURI\" : \"%s\",\n  \"dstURI\" : \"%s\",\n  \"imgURI\" : \"%s\",\n  \"imgDuration\" : \"%s\",\n  \"separation\" : \"%s\"\n}\n" % (job.GetDownloadURI(cfg,myHost),job.GetUploadURI(cfg,myHost),job.GetImageURI(cfg,myHost), job.imgDur, job.sepDur))
         elif job.state is 'i':
             return ReturnError(self, apache.HTTP_CONFLICT, "Cannot assign job", "Job busy")
         elif job.state is 'f':
@@ -246,7 +252,7 @@ class GetJobInfo(Page):
 class DownloadJob(Page):
     """
 
-    Used by clients to download a job
+    Used by clients to download the source item of a job
     
     """
 
@@ -261,6 +267,32 @@ class DownloadJob(Page):
         l = f.info().getheader("content-length")
         self.req.headers_out["Content-Length"] = l
         self.SendHeader("application/octet-stream")
+
+        while True:
+            s = f.read(128 * 1024)
+            if not s:
+                break
+            self.Write(s)
+        return apache.OK
+
+class ImageloadJob(Page):
+    """
+
+    Used by clients to download the encapsulating image of a job
+    
+    """
+
+    path = "/ttc/jobs/imgload"
+
+    showDebug = False
+
+    def Main(self):
+        (jobID,) = self.req.uri.split("/")[-1:]
+        job = ttc.model.jobs.GetJobByID(self.req.cursor, jobID)
+        f = urllib2.urlopen(job.imgURI)
+        l = f.info().getheader("content-length")
+        self.req.headers_out["Content-Length"] = l
+        self.SendHeader("image/png")
 
         while True:
             s = f.read(128 * 1024)
