@@ -1,6 +1,7 @@
 #! /usr/bin/python
 
 import sys, urllib, urllib2, time, tempfile, os, httplib, stat, shutil, socket, subprocess, json, urlparse, datetime
+import ttc.pretext
 
 # *** Should be imported from tt.py
 class TTError(Exception):
@@ -28,10 +29,10 @@ class Transcoder(object):
     ffmpeg2theora = "ffmpeg2theora"
     
     def __init__(self, baseURL):
-        self.baseURL = baseURL
-        self.recipe = None
+        self.baseURL  = baseURL
+        self.recipe   = None
         self.execPath = None
-        self.cmd = None
+        self.cmd      = None
 
     def GetRecipe(self):
         return self.recipe
@@ -43,9 +44,7 @@ class Transcoder(object):
         url = "%sjobs/update?%s" % (self.baseURL, urllib.urlencode((("id", jobID), ("b", numBytes))))
         urllib2.urlopen(url)
 
-    def Transcode(self, root, jobID, inPath, options={}):
-        outPath = os.path.join(root, "transcoded")
-
+    def Transcode(self, root, jobID, inPath, outPath, options={}):
         proc = subprocess.Popen(self.GetCMD(inPath, outPath, options))
 
         lastUpdate = time.time()
@@ -102,15 +101,15 @@ class Transcoder(object):
         fOut.close()
         return outPath 
 
-    def Upload(self, root, dstURI, jobID):
+    def Upload(self, root, inPath, dstURI, jobID):
         """
         Extract scheme, host, port, path etc from dstURI 
         If scheme is file, just copy or move the file locally
         Else use extracted parts to do the connection
         """
         parsedURI = urlparse.urlparse(dstURI)
-        inPath    = os.path.join(root, "transcoded")
         outPath   = parsedURI.path
+        sys.stderr.write(datetime.datetime.now().strftime("[%d %b %H:%M] ttclient ") + "Upload from %s to %s\n" % (inPath, outPath))
         if parsedURI.scheme.startswith("file"):
             try:
                 shutil.copy(inPath,outPath)
@@ -245,7 +244,15 @@ class TheoraTranscoder(Transcoder):
         return False
           
     def GetCMD(self, inPath, outPath, options={}):
-        return (self.execPath, '--sync', '-o', outPath, inPath)
+        return (self.execPath, '--sync', '-o', outPath, 
+            '-V', options.get('vbitrate','1024'), 
+            '-x', options.get('width','640'), 
+            '-y', options.get('height','480'), 
+            '-F', '25', 
+            inPath)
+
+    def Glue(self, root,sources,target): 
+        ttc.pretext.glueOGGPretext(root,sources, target)
 
 class SNDPTheoraFromWMV(Transcoder):
     def __init__(self, baseURL):
@@ -280,6 +287,7 @@ class SNDPTheoraTranscoder(Transcoder):
     def GetCMD(self, inPath, outPath, options={}):
         return (self.execPath, '--width', '384', '--height', '224', '--sync', '-o', outPath, inPath)
 
+
 class Handbrake(Transcoder):
     correct = {'h.264':'x264'}
 
@@ -296,7 +304,13 @@ class Handbrake(Transcoder):
     def GetCMD(self, inPath, outPath, options={}):
         return (self.execPath, '-i', inPath,'-o', outPath, 
             '-f', self.correct.get(options.get('format','mp4'),options.get('format','mp4')), 
-            '-e', self.correct.get(options.get('vcodec','h.264'),options.get('vcodec','h.264')))
+            '-e', self.correct.get(options.get('vcodec','h.264'),options.get('vcodec','h.264')),
+            '-w', options.get('width','320'),
+            '-l', options.get('height','240'),
+            '-r', '25')
+
+    def Glue(self,root,sources,target): 
+        ttc.pretext.glueMP4Pretext(root,sources, target)
 
 def GetTranscoderJob(transcoderList, jobs):
     for d in jobs:
@@ -327,10 +341,11 @@ def ProcessOneJob(baseURL, transcoderList):
         l.remove(d)
         arg = "%s" % urllib.urlencode([("id",d[u"id"])])
         assignURL = os.path.join(baseURL, "jobs/assign_job?%s" % arg)
-#        print assignURL
         try:
+            # print assignURL
             handle  = urllib2.urlopen(assignURL)
             jobDesc = handle.read().strip()
+            print jobDesc
             break
         except urllib2.HTTPError, e: # job is probably busy
             continue
@@ -341,11 +356,18 @@ def ProcessOneJob(baseURL, transcoderList):
     ad     = json.loads(jobDesc)
     srcURI = ad[u"srcURI"]
     dstURI = ad[u"dstURI"]
+    imgURI = ad[u"imgURI"]
+    imgDur = ad[u"imgDuration"]
+    sepDur = ad[u"separation"]
 
-    sys.stderr.write(datetime.datetime.now().strftime("[%d %b %H:%M] ttclient ") + "%s will transcode from %s to %s" % (recipe,srcURI,dstURI))
+    width  = d.get("width","600")
+    height = d.get("height","400")
+ 
+    sys.stderr.write(datetime.datetime.now().strftime("[%d %b %H:%M] ttclient ") + "%s will transcode from %s to %s\n" % (recipe,srcURI,dstURI))
 
     try:
         inPath = transcoder.Download(root, srcURI)
+        imgPath = transcoder.Download(root, imgURI)
 #        print inPath
     except Exception as e:
         arg = "%s" % urllib.urlencode([("id",jobID)])
@@ -353,14 +375,25 @@ def ProcessOneJob(baseURL, transcoderList):
         raise TTDownloadError, e
     else:
       try:
-        transcoder.Transcode(root, jobID, inPath, d)
+        outPath      = os.path.join(root, "transcoded")
+        textPath     = os.path.join(root, "pretext")
+        blankPath    = os.path.join(root, "blank")
+        outTextPath  = os.path.join(root, "pretext2")
+        outBlankPath = os.path.join(root, "blank2")
+        resPath      = os.path.join(root, "encapsulated")
+        transcoder.Transcode(root, jobID, inPath, outPath, d)
+        ttc.pretext.makeMP4Pretext(root, float(imgDur), imgPath, textPath, int(width), int(height))
+        ttc.pretext.makeMP4Pretext(root, float(sepDur), None, blankPath, int(width), int(height))
+        transcoder.Transcode(root, jobID, textPath, outTextPath, d)
+        transcoder.Transcode(root, jobID, blankPath, outBlankPath, d)
+        transcoder.Glue(root,[outTextPath, outBlankPath, outPath, outBlankPath, outTextPath], resPath)
       except Exception as e:
         arg = "%s" % urllib.urlencode([("id",jobID)])
         urllib2.urlopen("%sjobs/error?%s" % (baseURL,arg))
         raise TTTranscodingError, e
       else:
         try:
-            transcoder.Upload(root, dstURI, jobID)
+            transcoder.Upload(root, resPath, dstURI, jobID)
         except Exception as e:
             arg = "%s" % urllib.urlencode([("id",jobID)])
             urllib2.urlopen("%sjobs/error?%s" % (baseURL,arg))

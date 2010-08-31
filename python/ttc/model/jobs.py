@@ -67,10 +67,13 @@ class Job(object):
         shutil.rmtree(root)
 
 
-    def __init__(self, jobID, srcURI, dstURI, fDict, state = 'w', creationTime = None, workerAddress = None, workerStartTime = None, workerHeardFrom = None, workerRelativeProgress = None, priority = 128):
+    def __init__(self, jobID, srcURI, dstURI, imgURI, imgDur, sepDur, fDict, state = 'w', creationTime = None, workerAddress = None, workerStartTime = None, workerHeardFrom = None, workerRelativeProgress = None, priority = 128):
         self.id = jobID
         self.srcURI = srcURI
         self.dstURI = dstURI
+        self.imgURI = imgURI
+        self.imgDur = imgDur
+        self.sepDur = sepDur
         self.fDict  = fDict
         self.state  = state
         self.priority = priority
@@ -110,7 +113,8 @@ class Job(object):
         self.id = ttc.model.RandomHexString(32)
         size = self.CalculateSourceSize()
 
-        PsE(cursor, "insert into Jobs (id, srcURI, dstURI, priority, srcSize) values (%s, %s, %s, %s, %s)", (self.id, str(self.srcURI), self.dstURI, self.priority, size))
+        PsE(cursor, "insert into Jobs (id, srcURI, dstURI, imgURI, imgDuration, separation, priority, srcSize) values (%s, %s, %s, %s, %s, %s, %s, %s)", (self.id, str(self.srcURI), self.dstURI, str(self.imgURI), self.imgDur, self.sepDur, self.priority, size))
+#        PsE(cursor, "insert into Jobs (id, srcURI, dstURI, imgURI, imgDuration, priority, srcSize) values (%s, %s, %s, %s, %s, %s, %s)", (self.id, str(self.srcURI), self.dstURI,str(self.imgURI), self.imgDur, self.priority, size))
         for key in self.fDict:
             PsE(cursor, "insert into Parameters (jobID, key, value) values (%s, %s, %s)", (self.id, str(key), str(self.fDict[key])))
 
@@ -143,6 +147,16 @@ class Job(object):
             srcPath = os.path.join("/ttc/jobs/download", self.id)
             return urlparse.urlunparse(["http",outHost,srcPath,"","",""])
         return self.srcURI 
+
+    def GetImageURI(self, cfg, outHost):
+        """
+        The URI of the encapsulating image is treated as the source uri
+        """
+        clientSchm = cfg["network"]["clientscheme"]
+        if self.imgURI.startswith("file") and clientSchm.startswith("http"):
+            imgPath = os.path.join("/ttc/jobs/imgload", self.id)
+            return urlparse.urlunparse(["http",outHost,imgPath,"","",""])
+        return self.imgURI 
 
     def GetUploadURI(self, cfg, outHost):
         """
@@ -218,7 +232,7 @@ def CreateDstURI(cfg, srcURI, myHost, outExt):
     dstURI   = urlparse.urlunparse([userSchm,outHost,dstPath,"","",""])
     return dstURI
  
-def AddOneJob(cursor, srcURI, dstURI, cache, arguments):
+def AddOneJob(cursor, srcURI, dstURI, imgURI, imgDur, sepDur, cache, arguments):
     """
 
     Creates destination URI, adds job to the database
@@ -231,7 +245,7 @@ def AddOneJob(cursor, srcURI, dstURI, cache, arguments):
     Returns   : job 
     """
     
-    job = Job(None, srcURI, dstURI, arguments)
+    job = Job(None, srcURI, dstURI, imgURI, imgDur, sepDur, arguments)
     if not job:
         return None
     try:
@@ -269,13 +283,13 @@ def GetJobsByParams(cursor, state=None, arguments=dict([])):
     jobs = []
 
 
-    PsE(cursor, "select id, srcURI, dstURI, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority from jobs " + statepart + keypart + " order by priority asc",valpart)
-    for jobID, srcURI, dstURI, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority in cursor.fetchall():
+    PsE(cursor, "select id, srcURI, dstURI, imgURI, imgDuration, separation, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority from jobs " + statepart + keypart + " order by priority asc",valpart)
+    for jobID, srcURI, dstURI, imgURI, imgDur, sepDur, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority in cursor.fetchall():
             
         PsE(cursor, "select key, value from parameters where jobID=%s", (jobID,))
         fDict = dict([(p[0], p[1]) for p in cursor.fetchall()])
 
-        jobs.append(Job(jobID, srcURI, dstURI, fDict, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority))
+        jobs.append(Job(jobID, srcURI, dstURI, imgURI, imgDur, sepDur, fDict, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority))
     return jobs
 
 def GetJobsByState(cursor, state = None):
@@ -295,12 +309,12 @@ def GetJobsByState(cursor, state = None):
 
     jobs = []
 
-    PsE(cursor, "select id, srcURI, dstURI, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority from jobs%s" % statePart)
-    for jobID, srcURI, dstURI, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority in cursor.fetchall():
+    PsE(cursor, "select id, srcURI, dstURI, imgURI, imgDuration, separation, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority from jobs%s" % statePart)
+    for jobID, srcURI, dstURI, imgURI, imgDur, sepDur, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority in cursor.fetchall():
         PsE(cursor, "select key, value from parameters where jobID=%s", (jobID,))
         fDict = dict([(p[0], p[1]) for p in cursor.fetchall()])
 
-        jobs.append(Job(jobID, srcURI, dstURI, fDict, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority))
+        jobs.append(Job(jobID, srcURI, dstURI, imgURI, imgDur, sepDur, fDict, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority))
 
     return jobs
 
@@ -315,16 +329,16 @@ def GetJobByID(cursor, jobID):
  
     """
 
-    PsE(cursor, "select id, srcURI, dstURI, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority from Jobs where id=%s", (jobID,))
+    PsE(cursor, "select id, srcURI, dstURI, imgURI, imgDuration, separation, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority from jobs where id=%s", (jobID,))
     try:
-        jobID, srcURI, dstURI, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority = cursor.fetchone()
+        jobID, srcURI, dstURI, imgURI, imgDur, sepDur, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority = cursor.fetchone()
     except TypeError:
         # No jobs matching id
         return None
     PsE(cursor, "select key, value from parameters where jobID=%s", (jobID,))
     fDict = dict([(p[0], p[1]) for p in cursor.fetchall()])
 
-    job = Job(jobID, srcURI, dstURI, fDict, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority)
+    job = Job(jobID, srcURI, dstURI, imgURI, imgDur, sepDur, fDict, state, creationTime, workerAddress, workerStartTime, workerHeardFrom, workerRelativeProgress, priority)
     if not job:
         return None
 

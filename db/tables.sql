@@ -20,6 +20,9 @@ create table Jobs (
   creationTime timestamp with time zone not null default current_timestamp, -- When job was submitted
   srcURI varchar(512),
   dstURI varchar(512) unique, -- Destination path (file:///...)
+  imgURI varchar(512),
+  imgDuration float,
+  separation float,
 
   priority int not null check (priority > 0),
   srcSize bigint,
@@ -28,7 +31,7 @@ create table Jobs (
   workerAddress inet,
   workerStartTime timestamp with time zone,
   workerHeardFrom timestamp with time zone,
-  workerRelativeProgress int, -- percent
+  workerRelativeProgress int, -- bytes
   workerLog varchar(8192)
 
   -- check (state = 'w' or (workerAddress is not null and workerStartTime is not null))
