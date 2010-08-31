@@ -79,7 +79,7 @@ class AddOneJob(Page):
 
     
     path = "/ttc/jobs/add_one_job"
-    args = 'srcuri=file://path/file&format=mp4&vcodec=h.264&acodec=aac&vbitrate=1024&abitrate=128&width=640&height=480'
+    args = 'srcuri=file://path/file&format=mp4&vcodec=h.264&acodec=aac&vbitrate=1024&abitrate=128&width=640&height=480&imguri=file://path/file.png&imgduration=3.5&separation=1.5'
 
     showDebug = False
 
