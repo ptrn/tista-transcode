@@ -1,7 +1,24 @@
 #! /usr/bin/python
 
-import sys, urllib, urllib2, time, tempfile, os, httplib, stat, shutil, socket, subprocess, json, urlparse, datetime
+import sys, urllib, urllib2, time, tempfile, os, httplib, stat, shutil, socket, subprocess, json, urlparse, datetime, mimetypes
 import ttc.pretext
+
+def prepare_field(key, value, B):
+    L = []
+    L.append('--' + B)
+    L.append('Content-Disposition: form-data; name="%s"' % key)
+    L.append('')
+    L.append(value)  
+    return L  
+
+def prepare_file(key, filename, B):
+    L = []
+    L.append('--' + B)
+    L.append('Content-Disposition: form-data; name="%s"; filename="%s"' % (key, filename))
+    L.append('Content-Type: %s' % (mimetypes.guess_type(filename)[0] or 'application/octet-stream'))
+    L.append('')
+    L.append('')
+    return L  
 
 # *** Should be imported from tt.py
 class TTError(Exception):
@@ -71,7 +88,6 @@ class Transcoder(object):
 
         outPath = os.path.join(root, "original")
         fOut = open(outPath, "wb")
-
         fIn = urllib2.urlopen(srcURI)
 
         fSize  = int(fIn.headers['Content-Length'])
@@ -125,9 +141,80 @@ class Transcoder(object):
             port = 80
 
         fSize = os.stat(inPath)[stat.ST_SIZE]
-
+ 
         conn = httplib.HTTPConnection(host, port)
         conn.connect()
+
+        if parsedURI.hostname.startswith("s3.amazonaws"):
+            basename = os.path.dirname(outPath)
+            filename = os.path.basename(outPath)
+
+            BOUNDARY = '----------ThIs_Is_tHe_bouNdaRY_$'
+            CRLF = '\r\n'
+            L = []
+            L.extend(prepare_field("key", "${filename}", BOUNDARY))
+            L.extend(prepare_field("acl", "public-read", BOUNDARY))
+            L.extend(prepare_field("content-type", "text/plain", BOUNDARY))
+            L.extend(prepare_field("AWSAccessKeyId", "AKIAI37KHFCWAVFHJQKQ", BOUNDARY))
+            L.extend(prepare_field("policy", "ewogICJleHBpcmF0aW9uIjogIjIwMTEtMDEtMDFUMTI6MDA6MDAuMDAwWiIsCiAgImNvbmRpdGlvbnMiOiBbCiAgICB7ImJ1Y2tldCI6ICJkb2tmaWxtLXJhd191cCIgfSwKICAgIHsiYWNsIjogInB1YmxpYy1yZWFkIiB9LAogICAgWyJzdGFydHMtd2l0aCIsICIka2V5IiwgIiJdLAogICAgWyJzdGFydHMtd2l0aCIsICIkQ29udGVudC1UeXBlIiwgInRleHQvIl0sCiAgXQp9Cg==",
+                                   BOUNDARY))
+            L.extend(prepare_field("signature", "R1wppAeDCtyEvfiSb8wOIsotWsM=", BOUNDARY))
+            L.extend(prepare_file("file", filename, BOUNDARY))
+ 
+            LT = []
+            LT.append('')
+            LT.append('--' + BOUNDARY + '--')
+            LT.append('')
+
+            body = CRLF.join(L)
+            tail = CRLF.join(LT) 
+
+            content_type = 'multipart/form-data; boundary=%s' % BOUNDARY
+            conn.putrequest('POST', basename)
+            conn.putheader('content-type', content_type)
+            conn.putheader('content-length', str(len(body) + fSize + len(tail)))
+            conn.endheaders()
+
+            """
+            send fields
+            """
+            conn.send(body)
+
+            """
+            send file content
+            """
+            inFile = open(inPath, "rb")
+            sys.stderr.write(datetime.datetime.now().strftime("[%d %b %H:%M] ttclient ") + "Uploading ")
+
+            prevTick = -100
+            bytesWritten = 0
+            while True:
+                s = inFile.read(1024 * 128)
+                if not s:
+                    break
+                conn.send(s)
+                bytesWritten += len(s)
+
+                percent = ((bytesWritten * 100.0) / fSize)
+                if percent - prevTick >= 2.5:
+                    sys.stderr.write("=")
+                    prevTick = percent
+            sys.stderr.write("\n")
+
+            """
+            send terminating boundary
+            """
+            conn.send(tail)
+
+            resp = conn.getresponse()
+
+            if (resp.status / 100) != 2:
+                raise TTUploadError, "HTTP error %i during s3 upload." % (resp.status)
+            arg = "%s" % urllib.urlencode([("id",jobID)])
+            urllib2.urlopen("%sjobs/finish?%s" % (self.baseURL,arg))
+            return
+
+
 #        conn.putrequest('POST', '/ttc/jobs/upload/%s' % jobID) # let server generate dstURI instead
         conn.putrequest('POST', outPath)
         conn.putheader('content-type', 'application/octet-stream')
@@ -144,7 +231,6 @@ class Transcoder(object):
         resp = conn.getresponse()
         if resp.status != 200:
             s = resp.read().strip()
-#            sys.stderr.write(s)
             pd = json.loads(s)
             raise TTUploadError, "HTTP error %i during upload. %s" % (resp.status, pd["Error"])
 
@@ -226,34 +312,6 @@ class FMAASTranscoderAVILow(Transcoder):
     def GetCMD(self, inPath, outPath, options={}):
         return (self.execPath, inPath, "-I", "dummy", "--sout", "#transcode{vcodec=h264,vb=896,deinterlace,width=640,height=480,acodec=mp4a,ab=128}:standard{access=file,mux=mp4,dst=%s}" % outPath, "vlc:quit")
 
-class TheoraTranscoder(Transcoder):
-    def __init__(self, baseURL):
-        Transcoder.__init__(self, baseURL)
-
-        try:
-            proc = subprocess.Popen("ffmpeg2theora", stdout = subprocess.PIPE, stderr = subprocess.PIPE)
-        except OSError:
-            pass
-        else:
-            if proc.wait() == 0:
-                self.execPath ="ffmpeg2theora"
-                self.recipe = "Theora"
-
-    def CanDo(self, options):
-        if options.get('format','ogg') == 'ogg': return True   # If no other format is given, default to ogg
-        return False
-          
-    def GetCMD(self, inPath, outPath, options={}):
-        return (self.execPath, '--sync', '-o', outPath, 
-            '-V', options.get('vbitrate','1024'), 
-            '-x', options.get('width','640'), 
-            '-y', options.get('height','480'), 
-            '-F', '25', 
-            inPath)
-
-    def Glue(self, root,sources,target): 
-        ttc.pretext.glueOGGPretext(root,sources, target)
-
 class SNDPTheoraFromWMV(Transcoder):
     def __init__(self, baseURL):
         Transcoder.__init__(self, baseURL)
@@ -286,6 +344,35 @@ class SNDPTheoraTranscoder(Transcoder):
             
     def GetCMD(self, inPath, outPath, options={}):
         return (self.execPath, '--width', '384', '--height', '224', '--sync', '-o', outPath, inPath)
+
+
+class TheoraTranscoder(Transcoder):
+    def __init__(self, baseURL):
+        Transcoder.__init__(self, baseURL)
+
+        try:
+            proc = subprocess.Popen("ffmpeg2theora", stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        except OSError:
+            pass
+        else:
+            if proc.wait() == 0:
+                self.execPath ="ffmpeg2theora"
+                self.recipe = "Theora"
+
+    def CanDo(self, options):
+        if options.get('format','ogg') == 'ogg': return True   # If no other format is given, default to ogg
+        return False
+          
+    def GetCMD(self, inPath, outPath, options={}):
+        return (self.execPath, '--sync', '-o', outPath, 
+            '-V', options.get('vbitrate','1024'), 
+            '-x', options.get('width','640'), 
+            '-y', options.get('height','480'), 
+            '-F', '25', 
+            inPath)
+
+    def Glue(self, root,sources,target): 
+        ttc.pretext.glueOGGPretext(root,sources, target)
 
 
 class Handbrake(Transcoder):
@@ -342,10 +429,8 @@ def ProcessOneJob(baseURL, transcoderList):
         arg = "%s" % urllib.urlencode([("id",d[u"id"])])
         assignURL = os.path.join(baseURL, "jobs/assign_job?%s" % arg)
         try:
-            # print assignURL
             handle  = urllib2.urlopen(assignURL)
             jobDesc = handle.read().strip()
-            print jobDesc
             break
         except urllib2.HTTPError, e: # job is probably busy
             continue
@@ -368,7 +453,6 @@ def ProcessOneJob(baseURL, transcoderList):
     try:
         inPath = transcoder.Download(root, srcURI)
         imgPath = transcoder.Download(root, imgURI)
-#        print inPath
     except Exception as e:
         arg = "%s" % urllib.urlencode([("id",jobID)])
         urllib2.urlopen("%sjobs/error?%s" % (baseURL,arg))

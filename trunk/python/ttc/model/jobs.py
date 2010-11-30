@@ -181,6 +181,8 @@ class Job(object):
     def GetUploadPath(self, cfg):
         """
         Return path of the location were a file uploaded from a client will be stored
+
+        Note that when using file or s3 as client scheme, this wil not be in use
         """
         dstPath =  urlparse.urlparse(self.dstURI).path
         if self.dstURI.startswith("file"): # Extract destination path from file URI
@@ -225,6 +227,10 @@ def CreateDstURI(cfg, srcURI, myHost, outExt):
     if userSchm == "file":
         outRoot  = cfg["path"]["base"]
         outHost  = ""
+    elif userSchm == "s3":
+        userSchm = "http"
+        outHost  = cfg["network"]["s3host"]
+        outRoot  = cfg["path"]["base"]
     else:
         outRoot  = ""
         outHost  = myHost
