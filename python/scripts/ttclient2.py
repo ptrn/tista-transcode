@@ -15,7 +15,7 @@ def prepare_file(key, filename, B):
     L = []
     L.append('--' + B)
     L.append('Content-Disposition: form-data; name="%s"; filename="%s"' % (key, filename))
-    L.append('Content-Type: %s' % (mimetypes.guess_type(filename)[0] or 'application/octet-stream'))
+    L.append('Content-Type: %s' % (mimetypes.guess_type(filename)[0] or 'video/mp4'))
     L.append('')
     L.append('')
     return L  
@@ -62,6 +62,8 @@ class Transcoder(object):
         urllib2.urlopen(url)
 
     def Transcode(self, root, jobID, inPath, outPath, options={}):
+        cmd = self.GetCMD(inPath, outPath, options)
+        sys.stderr.write("> %s \n" % " ".join(cmd))
         proc = subprocess.Popen(self.GetCMD(inPath, outPath, options))
 
         lastUpdate = time.time()
@@ -154,11 +156,11 @@ class Transcoder(object):
             L = []
             L.extend(prepare_field("key", "${filename}", BOUNDARY))
             L.extend(prepare_field("acl", "public-read", BOUNDARY))
-            L.extend(prepare_field("content-type", "text/plain", BOUNDARY))
+            L.extend(prepare_field("content-type", (mimetypes.guess_type(filename)[0] or 'video/mp4'), BOUNDARY))
             L.extend(prepare_field("AWSAccessKeyId", "AKIAI37KHFCWAVFHJQKQ", BOUNDARY))
-            L.extend(prepare_field("policy", "ewogICJleHBpcmF0aW9uIjogIjIwMTEtMDEtMDFUMTI6MDA6MDAuMDAwWiIsCiAgImNvbmRpdGlvbnMiOiBbCiAgICB7ImJ1Y2tldCI6ICJkb2tmaWxtLXJhd191cCIgfSwKICAgIHsiYWNsIjogInB1YmxpYy1yZWFkIiB9LAogICAgWyJzdGFydHMtd2l0aCIsICIka2V5IiwgIiJdLAogICAgWyJzdGFydHMtd2l0aCIsICIkQ29udGVudC1UeXBlIiwgInRleHQvIl0sCiAgXQp9Cg==",
+            L.extend(prepare_field("policy", "ewogICJleHBpcmF0aW9uIjogIjIwMzAtMDEtMDFUMTI6MDA6MDAuMDAwWiIsCiAgImNvbmRpdGlvbnMiOiBbCiAgICB7ImJ1Y2tldCI6ICJkb2tmaWxtLXJhd191cCIgfSwKICAgIHsiYWNsIjogInB1YmxpYy1yZWFkIiB9LAogICAgWyJzdGFydHMtd2l0aCIsICIka2V5IiwgIiJdLAogICAgWyJzdGFydHMtd2l0aCIsICIkQ29udGVudC1UeXBlIiwgIiJdLAogIF0KfQo=",
                                    BOUNDARY))
-            L.extend(prepare_field("signature", "R1wppAeDCtyEvfiSb8wOIsotWsM=", BOUNDARY))
+            L.extend(prepare_field("signature", "48WiDbaPCX8qWKMonL3nhM3XcPg=", BOUNDARY))
             L.extend(prepare_file("file", filename, BOUNDARY))
  
             LT = []
@@ -364,10 +366,14 @@ class TheoraTranscoder(Transcoder):
         return False
           
     def GetCMD(self, inPath, outPath, options={}):
-        return (self.execPath, '--sync', '-o', outPath, 
-            '-V', options.get('vbitrate','1024'), 
-            '-x', options.get('width','640'), 
-            '-y', options.get('height','480'), 
+        return (self.execPath, '-o', outPath, 
+            '-x', options.get('width','480'), 
+            '-y', options.get('height','320'), 
+            '--two-pass', 
+            '-V', options.get('vbitrate','256'), 
+            '-A', options.get('abitrate','96'), 
+            '-c', '2', 
+            '-H', '24000', 
             '-F', '25', 
             inPath)
 
@@ -376,7 +382,7 @@ class TheoraTranscoder(Transcoder):
 
 
 class Handbrake(Transcoder):
-    correct = {'h.264':'x264'}
+    correct = {'h.264':'x264', 'aac':'faac'}
 
     def __init__(self, baseURL):
         Transcoder.__init__(self, baseURL)
@@ -384,17 +390,22 @@ class Handbrake(Transcoder):
         self.recipe = "handbrake"
 
     def CanDo(self, options):
+#        if options.get('format','') == 'ogg': return True 
         if options.get('format','') == 'mp4': return True 
         if options.get('format','') == 'mkv': return True 
         return False
           
     def GetCMD(self, inPath, outPath, options={}):
         return (self.execPath, '-i', inPath,'-o', outPath, 
-            '-f', self.correct.get(options.get('format','mp4'),options.get('format','mp4')), 
-            '-e', self.correct.get(options.get('vcodec','h.264'),options.get('vcodec','h.264')),
-            '-w', options.get('width','320'),
-            '-l', options.get('height','240'),
-            '-r', '25')
+            '-f',  options.get('format','mp4'), 
+            '-e',  self.correct.get(options.get('vcodec','h.264'),options.get('vcodec','x264')),
+            '-E',  self.correct.get(options.get('acodec','aac')),
+            '-w',  options.get('width','480'),
+            '-l',  options.get('height','320'),
+            '--vb', options.get('vbitrate','256'),
+            '--ab', options.get('abitrate','96'),
+            '-R', '24000'  # samplerate
+            ,'-r', '25')
 
     def Glue(self,root,sources,target): 
         ttc.pretext.glueMP4Pretext(root,sources, target)
@@ -445,14 +456,22 @@ def ProcessOneJob(baseURL, transcoderList):
     imgDur = ad[u"imgDuration"]
     sepDur = ad[u"separation"]
 
+    format = d[u"format"]
+
     width  = d.get("width","600")
     height = d.get("height","400")
+    vbitrate  = d.get("vbitrate","256")
+    abitrate  = d.get("abitrate","96")
  
     sys.stderr.write(datetime.datetime.now().strftime("[%d %b %H:%M] ttclient ") + "%s will transcode from %s to %s\n" % (recipe,srcURI,dstURI))
 
     try:
         inPath = transcoder.Download(root, srcURI)
-        imgPath = transcoder.Download(root, imgURI)
+        if imgURI != "None":
+          print imgURI
+          imgPath = transcoder.Download(root, imgURI)
+        else:
+          imgPath = False
     except Exception as e:
         arg = "%s" % urllib.urlencode([("id",jobID)])
         urllib2.urlopen("%sjobs/error?%s" % (baseURL,arg))
@@ -460,17 +479,21 @@ def ProcessOneJob(baseURL, transcoderList):
     else:
       try:
         outPath      = os.path.join(root, "transcoded")
-        textPath     = os.path.join(root, "pretext")
-        blankPath    = os.path.join(root, "blank")
-        outTextPath  = os.path.join(root, "pretext2")
-        outBlankPath = os.path.join(root, "blank2")
-        resPath      = os.path.join(root, "encapsulated")
         transcoder.Transcode(root, jobID, inPath, outPath, d)
-        ttc.pretext.makeMP4Pretext(root, float(imgDur), imgPath, textPath, int(width), int(height))
-        ttc.pretext.makeMP4Pretext(root, float(sepDur), None, blankPath, int(width), int(height))
-        transcoder.Transcode(root, jobID, textPath, outTextPath, d)
-        transcoder.Transcode(root, jobID, blankPath, outBlankPath, d)
-        transcoder.Glue(root,[outTextPath, outBlankPath, outPath, outBlankPath, outTextPath], resPath)
+        if imgPath:
+          soundPath    = "/home/torda/tt2/store/silence.mp3"
+          textPath     = os.path.join(root, "pretext")
+          blankPath    = os.path.join(root, "blank")
+          outTextPath  = os.path.join(root, "pretext2")
+          outBlankPath = os.path.join(root, "blank2")
+          resPath      = os.path.join(root, "encapsulated")
+          ttc.pretext.makeMP4Pretext(root, float(imgDur), imgPath, soundPath, textPath, int(vbitrate), int(abitrate), int(width), int(height))
+          ttc.pretext.makeMP4Pretext(root, float(sepDur), False, soundPath, blankPath, int(vbitrate), int(abitrate), int(width), int(height))
+          transcoder.Transcode(root, jobID, textPath, outTextPath, d)
+          transcoder.Transcode(root, jobID, blankPath, outBlankPath, d)
+          transcoder.Glue(root,[outTextPath, outBlankPath, outPath, outBlankPath, outTextPath], resPath)
+        else:
+          resPath = outPath 
       except Exception as e:
         arg = "%s" % urllib.urlencode([("id",jobID)])
         urllib2.urlopen("%sjobs/error?%s" % (baseURL,arg))
