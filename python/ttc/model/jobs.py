@@ -210,17 +210,15 @@ class Job(object):
 
 
 
-def CreateDstURI(cfg, srcURI, myHost, outExt):
+def CreateDstURI(cfg, srcURI, myHost, args):
     """
     Create a destination uri, based on the source uri, the availabilty of the transcoders file storage, the transcoding host and
     the type of the transcoded item. 
     """
-    if not outExt.startswith("."):
-        outExt = "." + outExt
+    # outExt = '_%s_%s_%s_%d_%d_%d_%d' % (args['format'],args['vcodec'],args['acodec'],args['vbitrate'],args['abitrate'],args['width'],args['height'])
+    outExt = '_%s_%s_%s_%s_%s_%s_%s' % (args['format'],args['vcodec'],args['acodec'],args['vbitrate'],args['abitrate'],args['width'],args['height'],)
     userSchm = cfg["network"]["userscheme"]
     inParsed = urlparse.urlparse(srcURI)
-    if inParsed.scheme == "file" and userSchm != "file":
-        raise Exception
     inPath   = inParsed.path
     basePart = os.path.splitext(os.path.split(inPath)[1])[0]
     outStore = cfg["path"]["storage"]
