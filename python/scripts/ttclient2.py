@@ -525,6 +525,7 @@ def GetTranscoderMapping(baseURL):
     return d
 
 def GetTranscoderList(baseURL):
+    """
     l = []
     ttype = type(Transcoder)
 
@@ -534,6 +535,10 @@ def GetTranscoderList(baseURL):
             l.append(transcoder)
 
     return l
+    """
+    h = Handbrake(baseURL)
+    t = TheoraTranscoder(baseURL)
+    return (h,t)
 
 def Main():
     try:
@@ -547,6 +552,7 @@ def Main():
 
 #    transcoderMapping = GetTranscoderMapping(baseURL)
     transcoderList = GetTranscoderList(baseURL)
+    print transcoderList
 
     while True:
         try:
