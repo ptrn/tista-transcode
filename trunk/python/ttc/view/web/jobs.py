@@ -88,10 +88,16 @@ class AddOneJob(Page):
         try:
             form = dict(mod_python.util.FieldStorage(self.req))
             srcURI = form.pop("srcuri") # should uridecode this
-            imgURI = form.pop("imguri") # should uridecode this
+            imgURI = form.pop("imguri",None) # should uridecode this
             imgDur = float(form.pop("imgduration","1.0"))
             sepDur = float(form.pop("separation","1.0"))
-            outExt = form.get("format","ogg")
+            form['width']  = form.get('width','1024')       # Fill in default values
+            form['height'] = form.get('height','768')       # Fill in default values
+            form['format'] = form.get('format','ogg')     # Fill in default values
+            form['vcodec'] = form.get('vcodec','theora')    # Fill in default values
+            form['acodec'] = form.get('acodec','vorbis')    # Fill in default values
+            form['vbitrate'] = form.get('vbitrate','1024')    # Fill in default values
+            form['abitrate'] = form.get('abitrate','192')     # Fill in default values
         except:
             self.req.status = apache.HTTP_BAD_REQUEST 
             self.Write("{\n  \"Error\" : \"Parameter error\",\n  \"Suggestion\" : \"Missing srcuri\"\n}\n\n")
@@ -100,7 +106,7 @@ class AddOneJob(Page):
         cfg      = self.req.config
         cache    = cfg["path"]["cache"]
         try: 
-            dstURI   = ttc.model.jobs.CreateDstURI(cfg, srcURI, self.req.hostname, outExt)
+            dstURI   = ttc.model.jobs.CreateDstURI(cfg, srcURI, self.req.hostname, form)
         except:
             self.req.status = apache.HTTP_CONFLICT  # Must set status before calling write !
             self.Write("{\n  \"Error\" : \"Job not created\",\n  \"Suggestion\" : \"Transcoder cannot read user files\",\n  \"srcURI\" : \"%s\"\n}\n" % (srcURI, ))
