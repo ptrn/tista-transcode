@@ -215,8 +215,11 @@ def CreateDstURI(cfg, srcURI, myHost, args):
     Create a destination uri, based on the source uri, the availabilty of the transcoders file storage, the transcoding host and
     the type of the transcoded item. 
     """
-    # outExt = '_%s_%s_%s_%d_%d_%d_%d' % (args['format'],args['vcodec'],args['acodec'],args['vbitrate'],args['abitrate'],args['width'],args['height'])
-    outExt = '_%s_%s_%s_%s_%s_%s_%s' % (args['format'],args['vcodec'],args['acodec'],args['vbitrate'],args['abitrate'],args['width'],args['height'],)
+    w  = args.get('width','def')
+    h  = args.get('height','def')
+    vb = args.get('vbitrate','def')
+    ab = args.get('abitrate','def')
+    outExt = '_%s_%s_%s_%s_%s_%s_%s' % (args['format'],args['vcodec'],args['acodec'],vb,ab,w,h,)
     userSchm = cfg["network"]["userscheme"]
     inParsed = urlparse.urlparse(srcURI)
     inPath   = inParsed.path

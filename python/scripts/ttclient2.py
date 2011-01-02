@@ -82,7 +82,7 @@ class Transcoder(object):
             time.sleep(1)
 
         if retCode != 0:
-            raise TTTranscodingError, "VLC returned error code %i" % retCode
+            raise TTTranscodingError, "Transcoder returned error code %i" % retCode
 
     def Download(self, root, srcURI):
         if srcURI.startswith("file"):
@@ -119,7 +119,7 @@ class Transcoder(object):
         fOut.close()
         return outPath 
 
-    def Upload(self, root, inPath, dstURI, jobID):
+    def Upload(self, root, inPath, dstURI, jobID, format):
         """
         Extract scheme, host, port, path etc from dstURI 
         If scheme is file, just copy or move the file locally
@@ -156,7 +156,7 @@ class Transcoder(object):
             L = []
             L.extend(prepare_field("key", "${filename}", BOUNDARY))
             L.extend(prepare_field("acl", "public-read", BOUNDARY))
-            L.extend(prepare_field("content-type", (mimetypes.guess_type(filename)[0] or 'video/mp4'), BOUNDARY))
+            L.extend(prepare_field("content-type", (mimetypes.guess_type(filename)[0] or format), BOUNDARY))
             L.extend(prepare_field("AWSAccessKeyId", "AKIAI37KHFCWAVFHJQKQ", BOUNDARY))
             L.extend(prepare_field("policy", "ewogICJleHBpcmF0aW9uIjogIjIwMzAtMDEtMDFUMTI6MDA6MDAuMDAwWiIsCiAgImNvbmRpdGlvbnMiOiBbCiAgICB7ImJ1Y2tldCI6ICJkb2tmaWxtLXJhd191cCIgfSwKICAgIHsiYWNsIjogInB1YmxpYy1yZWFkIiB9LAogICAgWyJzdGFydHMtd2l0aCIsICIka2V5IiwgIiJdLAogICAgWyJzdGFydHMtd2l0aCIsICIkQ29udGVudC1UeXBlIiwgIiJdLAogIF0KfQo=",
                                    BOUNDARY))
@@ -348,6 +348,48 @@ class SNDPTheoraTranscoder(Transcoder):
         return (self.execPath, '--width', '384', '--height', '224', '--sync', '-o', outPath, inPath)
 
 
+class FMAASTranscoderHigh(StreamingTranscoder):
+    def __init__(self, baseURL):
+        Transcoder.__init__(self, baseURL)
+
+        if os.path.exists(self.linuxVLC):
+            self.execPath = self.linuxVLC
+            self.recipe = "FMAAS_high"
+        elif os.path.exists(self.macVLC):
+            self.execPath = self.macVLC
+            self.recipe = "FMAAS_high"
+
+    def GetCMD(self, inPath, outPath, options={}):
+        downURL = os.path.join(self.baseURL, "jobs", "download", self.jobID, "0")
+        return (self.execPath, downURL, "-I", "dummy", "--sout", "#transcode{vcodec=h264,vb=1920,deinterlace,width=640,height=480,acodec=mp4a,ab=128}:standard{access=file,mux=mp4,dst=%s}" % outPath, "vlc:quit")
+
+class VLC(Transcoder):
+    def __init__(self, baseURL):
+        Transcoder.__init__(self, baseURL)
+
+        if os.path.exists(self.linuxVLC):
+            self.execPath = self.linuxVLC
+            self.recipe = "linux VLC"
+        elif os.path.exists(self.macVLC):
+            self.execPath = self.macVLC
+            self.recipe = "mac VLC"
+
+    def CanDo(self, options):
+        if self.execPath == None: return False
+        return False
+
+
+    def GetCMD(self, inPath, outPath, options={}):
+        # downURL = os.path.join(self.baseURL, "jobs", "download", self.jobID, "0")
+        return (self.execPath,"-v",
+          "--sout", 
+          "#transcode{vcodec=ogg,vb=1920,deinterlace,width=640,height=480,vcodec=theora,acodec=vorbis,ab=128,aenc=vorbis}:standard{access=file:,mux=ogg,dst=%s}" % outPath,
+          inPath,
+          "vlc://quit")
+
+    def Glue(self, root,sources,target): 
+        ttc.pretext.glueOGGPretext(root,sources, target)
+
 class TheoraTranscoder(Transcoder):
     def __init__(self, baseURL):
         Transcoder.__init__(self, baseURL)
@@ -362,6 +404,7 @@ class TheoraTranscoder(Transcoder):
                 self.recipe = "Theora"
 
     def CanDo(self, options):
+        if self.execPath == None: return False
         if options.get('format','ogg') == 'ogg': return True   # If no other format is given, default to ogg
         return False
           
@@ -387,9 +430,10 @@ class Handbrake(Transcoder):
     def __init__(self, baseURL):
         Transcoder.__init__(self, baseURL)
         self.execPath ="HandBrakeCLI"
-        self.recipe = "handbrake"
+        self.recipe = "Handbrake"
 
     def CanDo(self, options):
+        if self.execPath == None: return False
 #        if options.get('format','') == 'ogg': return True 
         if options.get('format','') == 'mp4': return True 
         if options.get('format','') == 'mkv': return True 
@@ -481,7 +525,7 @@ def ProcessOneJob(baseURL, transcoderList):
         outPath      = os.path.join(root, "transcoded")
         transcoder.Transcode(root, jobID, inPath, outPath, d)
         if imgPath:
-          soundPath    = "/home/torda/tt2/store/silence.mp3"
+          soundPath    = "silence.mp3"
           textPath     = os.path.join(root, "pretext")
           blankPath    = os.path.join(root, "blank")
           outTextPath  = os.path.join(root, "pretext2")
@@ -500,7 +544,7 @@ def ProcessOneJob(baseURL, transcoderList):
         raise TTTranscodingError, e
       else:
         try:
-            transcoder.Upload(root, resPath, dstURI, jobID)
+            transcoder.Upload(root, resPath, dstURI, jobID, "video/%s" % (format,))
         except Exception as e:
             arg = "%s" % urllib.urlencode([("id",jobID)])
             urllib2.urlopen("%sjobs/error?%s" % (baseURL,arg))
@@ -525,7 +569,6 @@ def GetTranscoderMapping(baseURL):
     return d
 
 def GetTranscoderList(baseURL):
-    """
     l = []
     ttype = type(Transcoder)
 
@@ -535,10 +578,7 @@ def GetTranscoderList(baseURL):
             l.append(transcoder)
 
     return l
-    """
-    h = Handbrake(baseURL)
-    t = TheoraTranscoder(baseURL)
-    return (h,t)
+
 
 def Main():
     try:
@@ -552,7 +592,8 @@ def Main():
 
 #    transcoderMapping = GetTranscoderMapping(baseURL)
     transcoderList = GetTranscoderList(baseURL)
-    print transcoderList
+    print transcoderList[0].GetRecipe()
+    print transcoderList[1].GetRecipe()
 
     while True:
         try:
