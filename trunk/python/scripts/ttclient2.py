@@ -1,6 +1,6 @@
 #! /usr/bin/python
 
-import sys, urllib, urllib2, time, tempfile, os, httplib, stat, shutil, socket, subprocess, json, urlparse, datetime, mimetypes
+import math, sys, urllib, urllib2, time, tempfile, os, httplib, stat, shutil, socket, subprocess, json, urlparse, datetime, mimetypes
 import ttc.pretext
 
 def prepare_field(key, value, B):
@@ -61,10 +61,10 @@ class Transcoder(object):
         url = "%sjobs/update?%s" % (self.baseURL, urllib.urlencode((("id", jobID), ("b", numBytes))))
         urllib2.urlopen(url)
 
-    def Transcode(self, root, jobID, inPath, outPath, options={}):
-        cmd = self.GetCMD(inPath, outPath, options)
+    def Transcode(self, root, jobID, inPath, outPath, options={}, defaults={}):
+        cmd = self.GetCMD(inPath, outPath, options, defaults)
         sys.stderr.write("> %s \n" % " ".join(cmd))
-        proc = subprocess.Popen(self.GetCMD(inPath, outPath, options))
+        proc = subprocess.Popen(self.GetCMD(inPath, outPath, options, defaults))
 
         lastUpdate = time.time()
 
@@ -379,7 +379,7 @@ class VLC(Transcoder):
         return False
 
 
-    def GetCMD(self, inPath, outPath, options={}):
+    def GetCMD(self, inPath, outPath, options={}, defaults={}):
         # downURL = os.path.join(self.baseURL, "jobs", "download", self.jobID, "0")
         return (self.execPath,"-v",
           "--sout", 
@@ -408,13 +408,13 @@ class TheoraTranscoder(Transcoder):
         if options.get('format','ogg') == 'ogg': return True   # If no other format is given, default to ogg
         return False
           
-    def GetCMD(self, inPath, outPath, options={}):
+    def GetCMD(self, inPath, outPath, options={}, defaults={}):
         return (self.execPath, '-o', outPath, 
-            '-x', options.get('width','480'), 
-            '-y', options.get('height','320'), 
+            '-x', options.get('width',defaults.get('width','480')),
+            '-y', options.get('height',defaults.get('height','320')),
             '--two-pass', 
-            '-V', options.get('vbitrate','256'), 
-            '-A', options.get('abitrate','96'), 
+            '-V', options.get('vbitrate',defaults.get('vbitrate','1064')),  
+            '-A', options.get('abitrate','64'), 
             '-c', '2', 
             '-H', '24000', 
             '-F', '25', 
@@ -439,15 +439,15 @@ class Handbrake(Transcoder):
         if options.get('format','') == 'mkv': return True 
         return False
           
-    def GetCMD(self, inPath, outPath, options={}):
+    def GetCMD(self, inPath, outPath, options={}, defaults={}):
         return (self.execPath, '-i', inPath,'-o', outPath, 
             '-f',  options.get('format','mp4'), 
             '-e',  self.correct.get(options.get('vcodec','h.264'),options.get('vcodec','x264')),
             '-E',  self.correct.get(options.get('acodec','aac')),
-            '-w',  options.get('width','480'),
-            '-l',  options.get('height','320'),
-            '--vb', options.get('vbitrate','256'),
-            '--ab', options.get('abitrate','96'),
+            '-w',  options.get('width',defaults.get('width','480')),
+            '-l',  options.get('height',defaults.get('height','320')),
+            '--vb', options.get('vbitrate','256'), 
+            '--ab', options.get('abitrate','64'), 
             '-R', '24000'  # samplerate
             ,'-r', '25')
 
@@ -460,6 +460,17 @@ def GetTranscoderJob(transcoderList, jobs):
             if t.CanDo(d):
                 return(t,d)
     raise TTNoJobsAvailableError
+
+def GetInfo(path):
+    command = ["ffmpeg2theora", "--info", path]
+    proc    = proc = subprocess.Popen(command,stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    ret     = proc.communicate()[0]
+    finfo   = json.loads(ret)
+    if len(finfo[u"video"]) < 1: finfo[u"video"] = [{}]
+    if u"bitrate" not in finfo[u"video"][0]: finfo[u"video"][0][u"bitrate"] = finfo[u"bitrate"]
+    if len(finfo[u"audio"]) < 1: finfo[u"audio"] = [{}]
+    return finfo
+
 
 def ProcessOneJob(baseURL, transcoderList):
     root = tempfile.mkdtemp(prefix = 'ttc-')
@@ -502,15 +513,30 @@ def ProcessOneJob(baseURL, transcoderList):
 
     format = d[u"format"]
 
-    width  = d.get("width","600")
-    height = d.get("height","400")
-    vbitrate  = d.get("vbitrate","256")
-    abitrate  = d.get("abitrate","96")
- 
     sys.stderr.write(datetime.datetime.now().strftime("[%d %b %H:%M] ttclient ") + "%s will transcode from %s to %s\n" % (recipe,srcURI,dstURI))
 
+    da = {};
     try:
         inPath = transcoder.Download(root, srcURI)
+
+# Get properties of src 
+        info = GetInfo(inPath)
+        print info
+        defWidth = info[u"video"][0][u"width"]
+        defHeight = info[u"video"][0][u"height"]
+        defVBitrate = info[u"video"][0][u"bitrate"]
+        defABitrate = info[u"audio"][0][u"bitrate"]
+# Get wanted properties
+        width  = d.get("width","%d" % defWidth)
+        height = d.get("height","%d" % defHeight)
+        vbitrate  = d.get("vbitrate", "%f" % defVBitrate)
+        abitrate  = d.get("abitrate", "%f" % defABitrate)
+
+        da["width"] = width;
+        da["height"] = height;
+        da["vbitrate"] =vbitrate;
+        da["abitrate"] = abitrate;
+
         if imgURI != "None":
           print imgURI
           imgPath = transcoder.Download(root, imgURI)
@@ -523,7 +549,7 @@ def ProcessOneJob(baseURL, transcoderList):
     else:
       try:
         outPath      = os.path.join(root, "transcoded")
-        transcoder.Transcode(root, jobID, inPath, outPath, d)
+        transcoder.Transcode(root, jobID, inPath, outPath, d, da)
         if imgPath:
           soundPath    = "silence.mp3"
           textPath     = os.path.join(root, "pretext")
@@ -531,10 +557,10 @@ def ProcessOneJob(baseURL, transcoderList):
           outTextPath  = os.path.join(root, "pretext2")
           outBlankPath = os.path.join(root, "blank2")
           resPath      = os.path.join(root, "encapsulated")
-          ttc.pretext.makeMP4Pretext(root, float(imgDur), imgPath, soundPath, textPath, int(vbitrate), int(abitrate), int(width), int(height))
-          ttc.pretext.makeMP4Pretext(root, float(sepDur), False, soundPath, blankPath, int(vbitrate), int(abitrate), int(width), int(height))
-          transcoder.Transcode(root, jobID, textPath, outTextPath, d)
-          transcoder.Transcode(root, jobID, blankPath, outBlankPath, d)
+          ttc.pretext.makeMP4Pretext(root, float(imgDur), imgPath, soundPath, textPath, vbitrate, abitrate, width, height)
+          ttc.pretext.makeMP4Pretext(root, float(sepDur), False, soundPath, blankPath, vbitrate, abitrate, width, height)
+          transcoder.Transcode(root, jobID, textPath, outTextPath, d, da)
+          transcoder.Transcode(root, jobID, blankPath, outBlankPath, d, da)
           transcoder.Glue(root,[outTextPath, outBlankPath, outPath, outBlankPath, outTextPath], resPath)
         else:
           resPath = outPath 

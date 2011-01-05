@@ -9,10 +9,14 @@ fps = 25
 logf = open('ttpretext.log','a')
 
 
-def makeMP4Pretext(root,duration,filename,soundname,target,vbitrate,abitrate,tw,th,fps=25):
+def makeMP4Pretext(root,duration,filename,soundname,target,vbitrate,abitrate,width,height,fps=25):
 # Compute number of frame in shortest sequence
   if fps < 25: fps = 25
   secs = int(duration)
+  tw   = int(width)
+  th   = int(height)
+  vb   = float(vbitrate)
+  ab   = float(abitrate)
   primes = [2,3,5,7,11,13,17,19,23,29,31]
   totalFrames = math.ceil(fps * secs)
 
@@ -82,7 +86,7 @@ def makeMP4Pretext(root,duration,filename,soundname,target,vbitrate,abitrate,tw,
     imNew.save(pngtarget)
   
 # Create shortest video sequence
-  command = "ffmpeg -i %s/img%%02d.png -vb %d -s %dx%d -r %d %s/tmpmp4.mp4" % (root,(vbitrate*1000),tw,th,fps,root)
+  command = "ffmpeg -i %s/img%%02d.png -vb %f -s %dx%d -r %d %s/tmpmp4.mp4" % (root,(vb*1000),tw,th,fps,root)
   print >> logf, command
   logf.flush()
   subprocess.call(command, shell=True, stdout=logf, stderr=logf)
