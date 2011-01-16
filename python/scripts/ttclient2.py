@@ -413,7 +413,7 @@ class TheoraTranscoder(Transcoder):
             '-x', options.get('width',defaults.get('width','480')),
             '-y', options.get('height',defaults.get('height','320')),
             '--two-pass', 
-            '-V', options.get('vbitrate',defaults.get('vbitrate','1064')),  
+            '-V', options.get('vbitrate',defaults.get('vbitrate','1024')),  
             '-A', options.get('abitrate','64'), 
             '-c', '2', 
             '-H', '24000', 
@@ -446,7 +446,7 @@ class Handbrake(Transcoder):
             '-E',  self.correct.get(options.get('acodec','aac')),
             '-w',  options.get('width',defaults.get('width','480')),
             '-l',  options.get('height',defaults.get('height','320')),
-            '--vb', options.get('vbitrate','256'), 
+            '--vb', options.get('vbitrate','1024'), 
             '--ab', options.get('abitrate','64'), 
             '-R', '24000'  # samplerate
             ,'-r', '25')
