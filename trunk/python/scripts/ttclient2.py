@@ -416,7 +416,7 @@ class TheoraTranscoder(Transcoder):
             '-V', options.get('vbitrate',defaults.get('vbitrate','1024')),  
             '-A', options.get('abitrate','64'), 
             '-c', '2', 
-            '-H', '24000', 
+#            '-H', '44100', 
             '-F', '25', 
             inPath)
 
@@ -448,8 +448,8 @@ class Handbrake(Transcoder):
             '-l',  options.get('height',defaults.get('height','320')),
             '--vb', options.get('vbitrate','1024'), 
             '--ab', options.get('abitrate','64'), 
-            '-R', '24000'  # samplerate
-            ,'-r', '25')
+#            '-R', '44100',  # samplerate
+            '-r', '25')
 
     def Glue(self,root,sources,target): 
         ttc.pretext.glueMP4Pretext(root,sources, target)
