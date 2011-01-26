@@ -1,0 +1,32 @@
+= Technical Documentation Tista Transcode =
+
+== Server ==
+
+The TTC Server consists of a thin web interface and a sql database. The server is accessed by user applications (CMS etc) and by the TTC Client through the web interface. Direct access to the database may be necessary at regular intervals to remove old entries.
+
+=== Interface ===
+
+Remote procedure calls understood by the server.
+
+==== Add one job ====
+
+{{{
+/ttc/jobs/add_one_job?srcuri=file://path/file&format=mp4&vcodec=h.264&acodec=aac&vbitrate=1024&abitrate=128&width=640&height=480
+}}}
+
+Requests ttc to transcode the item located at url file://path/file to containerformat mp4 with videoformat h.264, sound format aac etc. Source URL (srcuri) may be file: or http:.
+
+  * srcuri : url to the video that should be transcoded
+  * format : requested containerformat, ogg or mp4
+  * vcodec : requested videoformat, theora or h.264
+  * acodec : requested audioformat vorbis or aac
+
+Note that in the existing implementation, format will overrule vcodec and acodec. format=ogg will always give vcodec =theora and acodec=vorbis. format=mp4 will return vcodec=h.264 and acodec=aac
+
+  * vbitrate : requested videobitrate. If this is not supplied, the transcoder will try to keep the current bitrate from the source video or choose a functioning replacement value.
+  * abitrate : requested audiobitrate. If this is not supplied, the transcoder will try to keep the current bitrate from the source video or choose a functioning replacement value.
+  * width : requested width. If this is not supplied, the transcoder will try to keep the current width from the source video or choose a functioning replacement value.
+  * height : requested height. If this is not supplied,the transcoder will try to keep the current height from the source video or choose a functioning replacement value.
+  * imguri : URL, file or http, to a picture in png-format that will be added in front of and in the end of the video document.
+  * imgduration : duration in whole seconds of the added image
+  * separation = duration in whole seconds of the period of black between the image and the video.
