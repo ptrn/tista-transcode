@@ -1,0 +1,12 @@
+== web ==
+
+=== index ===
+
+Near the top of the page is an input field where the user can select and upload new videos. When the video is finished uploading the user is redirected to the site where the video will be available.
+
+Further down is a list of already uploaded videos. Videos with annotations attached to it has an image of a text bubble in front of it.
+
+== Components ==
+
+
+== Annotation view ==
