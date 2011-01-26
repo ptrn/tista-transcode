@@ -30,3 +30,63 @@ Note that in the existing implementation, format will overrule vcodec and acodec
   * imguri : URL, file or http, to a picture in png-format that will be added in front of and in the end of the video document.
   * imgduration : duration in whole seconds of the added image
   * separation = duration in whole seconds of the period of black between the image and the video.
+
+Return: text in application/json-format:
+
+{{{
+{
+"id" : "xxxxxx...",
+"srcURI" : "file://path/file",
+"dstURI" : "file://path/file2"
+}
+}}}
+
+where id is a 32-byte code used to identify the transcoding job in further communication.
+
+Used by CMS.
+
+==== Download ====
+
+{{{
+/ttc/jobs/download/xxxxxx...
+}}}
+
+Downloads a not yet transcoded video document from ttc server.
+
+Return: File content
+
+Used by ttc client.
+
+==== Upload ====
+
+{{{
+/ttc/jobs/upload/xxxxxx...
+}}}
+
+Uploads a transcoded video document to the ttc server. The server will recognize the document as the product of a transcoding job identified by the id.
+
+Used by ttc client.
+
+==== Get Job info ====
+
+{{{
+/ttc/jobs/get_job_info ? id=xxxxxx...
+}}}
+
+Asks for information on a particular transcoding job.
+
+Return: application/json following the pattern:
+
+{{{
+{
+"id" : "xxxxxx...", 
+"state" : "w", 
+"srcURI" : "file://path/file",
+"dstURI" : "file://path/file2"
+"progress" : "0"
+}
+}}}
+
+where state (w|i|f|e) indicates wether the job Waits in queue, is In progress, is Finished or has Error status. Pogress is the number of bytes written to the result document.
+
+Used by CMS
