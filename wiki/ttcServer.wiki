@@ -90,3 +90,100 @@ Return: application/json following the pattern:
 where state (w|i|f|e) indicates wether the job Waits in queue, is In progress, is Finished or has Error status. Pogress is the number of bytes written to the result document.
 
 Used by CMS
+
+==== Jobs ====
+
+{{{
+/ttc/jobs/
+}}}
+
+Returns a html page informing about what the ttc is doing: All jobs and their state.
+
+Used by system administrator.
+
+==== Snapshot ====
+
+{{{
+/ttc/jobs/snapshot ? id=xxxxxx...
+}}}
+
+Deprecated.
+
+==== Help ====
+
+{{{
+/ttc/help
+}}}
+
+A short version of this documentation in html.
+
+==== get Job List ====
+
+{{{
+/ttc/jobs/get_job_list?format=mp4&vcodec=h.264&acodec=aac&vbitrate=1024&abitrate=128&width=640&height=480
+}}}
+
+A list of all jobs in the database that follows certain conditions.
+
+Return: json
+
+{{{
+[
+{"id": "xxxxxx...", "format": "mp4"}, 
+{"id": "xxxxxx...", "format": "ogg"}
+]
+}}}
+
+Used by: ttc client wanting to do a job
+
+==== Update ====
+
+{{{
+/ttc/jobs/update ? id=xxxxxx...&b=nn
+}}}
+
+Informing the server about how many bytes has been transcoded for a paricular job.
+
+Used by : ttc client.
+
+==== Assign job ====
+
+{{{
+/ttc/jobs/assign_job ? id=xxxxxx...
+}}}
+
+Informing the server that a ttc client has grabbed a job from the Waiting list.
+
+Return: json on the form
+
+{{{
+{
+"srcURI" : "file://path/file",
+"dstURI" : "file://path/file2"
+}
+}}}
+
+where file and file2 are the locations where the client may fetch and store the video document.
+
+Used by : ttc client.
+
+==== Error ====
+
+{{{
+/ttc/jobs/error ? id=xxxxxx...
+}}}
+
+Informing ttc server that a transcoding job has failed
+
+Used by : ttc client.
+
+
+==== Error ====
+
+{{{
+/ttc/jobs/finish ? id=xxxxxx... 
+}}}
+
+Informing ttc server that a transcoding job has terminated without known errors.
+
+Used by : ttc client.
