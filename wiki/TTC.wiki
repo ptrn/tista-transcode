@@ -187,3 +187,117 @@ Used by : ttc client.
 Informing ttc server that a transcoding job has terminated without known errors.
 
 Used by : ttc client.
+
+=== Implementation ===
+
+The server is implemented as a mod_python module and a postgress sql database.
+Configuration
+
+The following entries are necessary in the apache configuration: 
+
+{{{
+  <Directory /usr/local/tista-transcode/python/mod_python/>
+              AddHandler python-program .py
+              PythonHandler handler
+              PythonDebug On
+              PythonPath "['/usr/local/tista-transcode/python'] + sys.path"
+              PythonOption ttcConfigPath "/usr/local/tista-transcode/config/film.cfg"
+  </Directory>
+}}}
+
+{{{
+  RewriteEngine on
+  RewriteRule ^/ttc/(.*) /usr/local/tista-transcode/python/mod_python/handler.py/$1 [L]
+}}}
+
+The configuration file at ttcConfigPath is a python script looking like this:
+
+{{{
+# Network settings
+network["host"]       = "film"
+network["domain"]     = "hiof.no"
+network["smtp"]       = "mailserver.hiof.no"
+network["userscheme"] = "file"
+network["clientscheme"] = "file"
+}}}
+
+{{{
+# Path settings
+path["html"]          = "/usr/local/tista-transcode/data/html"
+path["scripts"]       = "/usr/local/tista-transcode/python/scripts"
+path["cache"]         = "/var/lib/tista-transcode/cache"
+path["base"]          = "/var/lib/tista-transcode"
+path["storage"]       = "store"
+}}}
+
+{{{
+# Database settings
+database["name"]      = "tista-transcode"
+database["adminUser"] = "root"
+database["webUser"]   = "www-data"
+}}}
+
+{{{
+# Debugging
+debug["debugMode"]    = True
+}}}
+
+host/domain identifies the server running ttc.
+
+userscheme = file means that the user application/cms has access to the ttc servers file system (alternative is http)
+
+clientscheme = file means that the ttc clients have access to the ttc servers file system (alternative is http or s3)
+
+clientscheme = s3 means that results from transcoding will be stored at amazones s3 storage
+
+base is the path to the directory serving ttc web content. (When using s3, base should be empty.)
+
+store is a sub directory where transcoded files will be put
+
+== Client ==
+
+=== Implementation ===
+
+The ttc client is implemented as a python script and the source is located in tista-transcode/python/scripts/ttclient2.py. It transcodes to ogg/theora and mp4/h.264, but does not necessarily use the most efficent transcoder.
+
+For transcoding to mp4 Handbrake is used, while ogg/theora is created by ffmpeg2theora
+
+The source consists of a series of transcoders, all being the subclasses of the Transcoder class. Each transcoder makes use of an external transcoder tool, like VLC, ffmpeg2theora, Handbrake etc, being called as subprocesses with various arguments.
+
+Most of these transcoders are defunct, but are kept in the code for possible future use. The method cando, witch takes a list of requested properties as argument, returns true if the transcoder can handle that request.
+
+The client fetches a list of transcoding jobs from the server. It then checks if it has an available transcoder that can do any of the jobs. If so, it assigns that job to itself before calling the transcoders methods to download the jobs source video, transcode it and upload the result.
+
+If the job requests a pretext image, the transcoder is asked to transcode the image to same output format and then glue it to the target video.
+
+=== Interface ===
+
+The ttc client is started from the command line 
+
+{{{
+ ./scripts/ttclient2.py http://dokfilm.l6.no/ttc/
+}}}
+
+with one single argument, identifying the ttc server.
+
+The clients sets the following properties during transcoding format, vcodec, acodec, bredde, høyde, audiobitrate og videobitrate
+
+These properties are fetched from the ttc servers database and are assumed to be delivered by the servers web interface. I f the properties are missing the following default values are used:
+
+width: 480, height: 320, vbitrate: 256, abitrate: 96
+
+If format is mp4: videocodec: h.264, audiocodec: aac
+
+If format is ogg: videocodec: theora, audiocodec: vorbis
+
+In addition samplerate is set fixed to 24000 and framerate to 25 fps.
+
+If the property imguri is present in the servers job description, a static picture is glued to the beginning and end of the film. Between the picture and the film is a period where the screen goes black. The length of the time the picture and the black screen is shown is given by the properties imgDuration and separation. Of technical reasons the picture is followed by a soundtrack. This is copied from a file situated in the running directory with the name silence.mp3. This file does not have to contain any sound.
+
+=== Dependencies ===
+
+  * ffmpeg2theora >= version 0.26
+  * HandBrakeCLI
+  * MP4Box
+  * oggCat
+  * ffmpeg >= version 0.6.1 . Installing instructions is found in [http://ubuntuforums.org/showthread.php?t=786095 Ubuntu Forums]
