@@ -45,7 +45,7 @@ This describes the file tree for the web prototype, and the purpose of each file
 
 == desciption ==
 
-  * *LoremIpsum.class.php*
+  * *`LoremIpsum.class.php`*
     * used for generating random sentences, used to generate fictive video desciptions
   * *core.php*
     * 
