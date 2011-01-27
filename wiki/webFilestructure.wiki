@@ -24,17 +24,14 @@ This describes the file tree for the web prototype, and the purpose of each file
 |   `-- dot-yellow.png
 |-- import.php
 |-- inc
-|   |-- upload-subs.php
 |   |-- upload-video.php
 |   |-- video-list.php
-|   `-- video-view.php
 |-- js
 |   |-- annotations.js
 |   |-- core.js
 |   |-- genkey.php
 |   |-- jquery-min.js
 |   `-- upload.js
-|-- parser.php
 |-- policy.php
 |-- sql.php
 |-- style2.css
@@ -51,37 +48,41 @@ This describes the file tree for the web prototype, and the purpose of each file
     * used for generating random sentences, used to generate fictive video desciptions
   * *`core.php`*
     * Used for initialization of global PHP variables and functions. Used by most PHP files
-  * *`upload-subs-post.php`*
+  * *`events/upload-subs-post.php`*
     * script that receives, processes and stores the annotations that get uploaded
-  * *`upload-video-post.php`*
+  * *`events/upload-video-post.php`*
     * After upload to Amazon S3 storage is done, the user is redirected here with some information about the uploaded object. READ MORE SOMEWHERE
-  * *`upload-video-pre.php`*
+  * *`events/upload-video-pre.php`*
     * Generates policy and certificate to allow upload of object to Amazon. READ MORE SOMEWHERE
   * *`fetcher.php`*
     * various set functions to extract data from the database
   * *`first.php`*
     * TODO
-  * *``*
-    *
-  * *``*
-    *
-  * *``*
-    *
-  * *``*
-    *
-  * *``*
-    *
-  * *``*
-    *
-  * *``*
-    *
-  * *``*
-    *
-  * *``*
-    *
-  * *``*
-    *
-  * *``*
-    *
-  * *``*
-    *
+  * *`import.php`*
+    * parses SRT files
+  * *`inc/upload-video.php`*
+    * HTML for video upload form
+  * *`inc/video-list.php`*
+    * lists all uploaded videos in HTML
+  * *`js/annotations.js`*
+    * JavaScript for showing annotations while in video view
+  * *`js/core.js`*
+    * Used for initialization of global variables, functions and objects, used in all pages
+  * *`js/genkey.php`*
+    * TODO
+  * *`js/jquery-min.js`*
+    * jQuery library
+  * *`js/upload.js`*
+    * JavaScript used in upload form
+  * *`policy.php`*
+    * creates certificate and policy to allow upload of objects to Amazon S3
+  * *`sql.php`*
+    * handles database connections and queries
+  * *`style2.css`*
+    * stylesheet
+  * *`subs.php`*
+    * handles annotation objects
+  * *`tools.php`*
+    * common used functions
+  * *`video.php`*
+    * handles the video objects
