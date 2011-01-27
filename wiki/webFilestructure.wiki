@@ -45,15 +45,43 @@ This describes the file tree for the web prototype, and the purpose of each file
 
 == desciption ==
 
+  * *`.htaccess`*
+    * Apache configuration settings. READ MORE SOMEWHERE
   * *`LoremIpsum.class.php`*
     * used for generating random sentences, used to generate fictive video desciptions
-  * *core.php*
-    * 
-  * **
-    * 
-  * **
-    * 
-  * **
-    * 
-  * **
-    * 
+  * *`core.php`*
+    * Used for initialization of global PHP variables and functions. Used by most PHP files
+  * *`upload-subs-post.php`*
+    * script that receives, processes and stores the annotations that get uploaded
+  * *`upload-video-post.php`*
+    * After upload to Amazon S3 storage is done, the user is redirected here with some information about the uploaded object. READ MORE SOMEWHERE
+  * *`upload-video-pre.php`*
+    * Generates policy and certificate to allow upload of object to Amazon. READ MORE SOMEWHERE
+  * *`fetcher.php`*
+    * various set functions to extract data from the database
+  * *`first.php`*
+    * TODO
+  * *``*
+    *
+  * *``*
+    *
+  * *``*
+    *
+  * *``*
+    *
+  * *``*
+    *
+  * *``*
+    *
+  * *``*
+    *
+  * *``*
+    *
+  * *``*
+    *
+  * *``*
+    *
+  * *``*
+    *
+  * *``*
+    *
