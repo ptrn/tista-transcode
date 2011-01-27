@@ -1,0 +1,44 @@
+= Filestructure =
+
+This describes the file tree for the web prototype, and the purpose of each file.
+
+== tree ==
+
+Base path:
+{{{
+/web/prototype/ajax/
+}}}
+
+{{{
+|-- LoremIpsum.class.php
+|-- core.php
+|-- events
+|   |-- upload-subs-post.php
+|   |-- upload-video-post.php
+|   `-- upload-video-pre.php
+|-- fetcher.php
+|-- first.php
+|-- img
+|   |-- annot.png
+|   |-- dot-red.png
+|   `-- dot-yellow.png
+|-- import.php
+|-- inc
+|   |-- upload-subs.php
+|   |-- upload-video.php
+|   |-- video-list.php
+|   `-- video-view.php
+|-- js
+|   |-- annotations.js
+|   |-- core.js
+|   |-- genkey.php
+|   |-- jquery-min.js
+|   `-- upload.js
+|-- parser.php
+|-- policy.php
+|-- sql.php
+|-- style2.css
+|-- subs.php
+|-- tools.php
+`-- video.php
+}}}
