@@ -1,6 +1,8 @@
-== viewing annotations ==
+== viewing ==
 
-== uploading annotations ==
+
+
+== uploading ==
 
 The format of the file containing the annotations must be as the SRT syntax is defined.
 
