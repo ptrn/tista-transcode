@@ -1,14 +1,14 @@
-= Filestructure =
-
 This describes the file tree for the web prototype, and the purpose of each file.
 
-== tree ==
+= tree =
 
-Base path:
+*Base path:*
 {{{
 /web/prototype/ajax/
 }}}
 
+
+*File structure:*
 {{{
 |-- LoremIpsum.class.php
 |-- core.php
@@ -42,3 +42,10 @@ Base path:
 |-- tools.php
 `-- video.php
 }}}
+
+== desciption ==
+
+  * *LoremIpsum.class.php*
+    * slkaksdj lajsdalksda
+  * *asdjasdkja lkjdal jasd*
+    * aasjkd lsadlkdsalk
