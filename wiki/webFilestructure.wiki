@@ -88,7 +88,7 @@ Used to rewrite URL's. Parameters are sent as `/par1/par2`. Eg.:
 {{{
 /view/4863
 }}}
-In this example, the site for viewing a video is requested, with video ID 4863. This makes the URI less confusing and more clean.
+In this example, the site for viewing a video is requested, with video ID 4863. This makes the URI less confusing and more clean. The only case where query strings are used is post upload of an object to Amazon S3, but the user is immediately redirected to a new page. 
 
 ==== core.php ====
 
@@ -96,9 +96,20 @@ This file defines all common PHP classes, variables and functions. MER OM VIKTIG
 
 ==== events/upload-subs-post.php ====
 
-This script receives, processes and stores uploaded annotations. A SRT-formatted file is required, read more about the syntax [webAnnotations#uploading here].
+This script receives, processes and stores uploaded annotations. An SRT-formatted file is required. Read more about the syntax [webAnnotations#uploading here].
 
 ==== events/upload-video-post.php ====
+
+After the user has uploaded an object to Amazon S3, he gets redirected back to a callback URI. A query string follows the callback, giving information about the uploaded object:
+  * a random generated ID used when generating the policy to allow upload
+  * the original file name, extension removed
+  * Amazon S3 bucket name
+  * location in bucket of the uploaded object
+  * ~~an Amazon S3 object reference (not used)~~
+
+The following pseudocode will describe the flow of the code:
+
+
 ==== events/upload-video-pre.php ====
 ==== fetcher.php  ====
 ==== first.php ====
