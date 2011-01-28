@@ -1,12 +1,6 @@
 This describes the file tree for the web prototype, and the purpose of each file.
 
-= tree =
-
-*Base path:*
-{{{
-/web/prototype/ajax/
-}}}
-
+= Tree =
 
 *File structure:*
 {{{
@@ -40,7 +34,7 @@ This describes the file tree for the web prototype, and the purpose of each file
 `-- video.php
 }}}
 
-== desciption ==
+== File description ==
 
   * *`.htaccess`*
     * Apache configuration settings. READ MORE SOMEWHERE
@@ -86,3 +80,32 @@ This describes the file tree for the web prototype, and the purpose of each file
     * common used functions
   * *`video.php`*
     * handles the video objects
+
+=== Notes ===
+
+==== .htaccess ====
+Used to rewrite URL's. Parameters are sent as `/par1`, eg. `/view/4863`. In this example, the site for viewing a video is requested, with video ID 4863. This makes the URI less confusing and more clean.
+
+==== core.php ====
+
+This file defines all common PHP classes, variables and functions. MER OM VIKTIGE VARIABLER
+
+==== events/upload-subs-post.php ====
+
+This script receives, processes and stores uploaded annotations. A SRT-formatted file is required, read more about the syntax [webAnnotations#uploading here].
+
+==== events/upload-video-post.php ====
+==== events/upload-video-pre.php ====
+==== fetcher.php  ====
+==== first.php ====
+==== import.php ====
+==== inc/upload-video.php ====
+==== js/annotations.js ====
+==== js/core.js ====
+==== js/genkey.php ====
+==== js/upload.js ====
+==== policy.php ====
+==== sql.php ====
+==== subs.php ====
+==== tools.php ====
+==== video.php ====
