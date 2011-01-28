@@ -84,7 +84,11 @@ This describes the file tree for the web prototype, and the purpose of each file
 === Notes ===
 
 ==== .htaccess ====
-Used to rewrite URL's. Parameters are sent as `/par1`, eg. `/view/4863`. In this example, the site for viewing a video is requested, with video ID 4863. This makes the URI less confusing and more clean.
+Used to rewrite URL's. Parameters are sent as `/par1/par2`. Eg.:
+{{{
+/view/4863
+}}}
+In this example, the site for viewing a video is requested, with video ID 4863. This makes the URI less confusing and more clean.
 
 ==== core.php ====
 
