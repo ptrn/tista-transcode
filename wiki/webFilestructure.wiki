@@ -16,14 +16,12 @@ This describes the file tree for the web prototype, and the purpose of each file
 |   |-- annot.png
 |   |-- dot-red.png
 |   `-- dot-yellow.png
-|-- import.php
 |-- inc
 |   |-- upload-video.php
 |   |-- video-list.php
 |-- js
 |   |-- annotations.js
 |   |-- core.js
-|   |-- genkey.php
 |   |-- jquery-min.js
 |   `-- upload.js
 |-- policy.php
@@ -82,6 +80,8 @@ This describes the file tree for the web prototype, and the purpose of each file
     * handles the video objects
 
 === Notes ===
+
+Some files that need some further explanation.
 
 ==== .htaccess ====
 Used to rewrite URL's. Parameters are sent as `/par1/par2`. Eg.:
@@ -143,15 +143,45 @@ Generates information needed to be allowed to upload to Amazon S3. Given a file 
 Read more about Amazon S3 [Amazon#Amazon S3 here].
 
 ==== fetcher.php  ====
+
+A set of functions for obtaining data from database.
+
 ==== first.php ====
-==== import.php ====
+
+
+
 ==== inc/upload-video.php ====
+
+This is the HTML code for the form to upload an object. Note that the actual submit button is outside the form.
+
+The sequence is as following:
+  * user selects a file to upload
+  * user clicks on submit button, which triggers the JavaScript function ´upload.click()´
+    * JavaScript does GET request to ´events/upload-video-pre.php´, giving name of file selected for upload
+    * GET request returns dynamic variables required to upload to Amazon S3
+    * JavaScript adds hidden inputs containing required variables
+    * the uploading is triggered
+
 ==== js/annotations.js ====
+
+JavaScript for handling annotation when viewing a video. The function ´anno.updateTime()´ gets more and more inefficient as the number of annotations for a video increases, as all annotations are iterated on update.
+
 ==== js/core.js ====
-==== js/genkey.php ====
+
+Defines common variables and initiates objects.
+
 ==== js/upload.js ====
+
+Object containing functions that gets the variables required for Amazon S3 upload.
+
 ==== policy.php ====
-==== sql.php ====
+
+Class that generates policies and other variables necessary to upload to Amazon S3. 
+
 ==== subs.php ====
-==== tools.php ====
+
+Script that receives the uploaded SRT files, parses them and adds it to the video and database.
+
 ==== video.php ====
+
+Contains several classes for handling video, annotation and video format objects.
