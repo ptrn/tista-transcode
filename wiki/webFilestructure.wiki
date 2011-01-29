@@ -109,6 +109,21 @@ After the user has uploaded an object to Amazon S3, he gets redirected back to a
 
 The following pseudocode will describe the flow of the code:
 
+{{{
+
+FOR all formats defined in $GLOBALS['ttc']['output']
+  compose URI to request TTC server
+  requesting TTC to add job to transcode to a given output format (footnote: see below code)
+  IF job added successfully
+    IF this is first job added so far in this instance
+      add movie to database
+      store ID for movie
+    add movie format to database, using movie ID as part of primary key
+
+redirect user to URI for viewing processed video
+}}}
+
+**Footnote:** for some reason, curl and other functions for doing a HTTP request fails and returns a HTTP 400 error code for ~1/5 of the requests, corrupting the database. As a preliminary fix, the HTTP request is done until the response code is not HTTP 400. This should most definitively be fixed.
 
 ==== events/upload-video-pre.php ====
 ==== fetcher.php  ====
