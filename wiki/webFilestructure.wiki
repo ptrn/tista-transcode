@@ -126,6 +126,22 @@ redirect user to URI for viewing processed video
 **Footnote:** for some reason, curl and other functions for doing a HTTP request fails and returns a HTTP 400 error code for ~1/5 of the requests, corrupting the database. As a preliminary fix, the HTTP request is done until the response code is not HTTP 400. This should most definitively be fixed.
 
 ==== events/upload-video-pre.php ====
+
+Generates information needed to be allowed to upload to Amazon S3. Given a file name as input, the output is a set of JSON encoded data:
+
+  * which Amazon S3 bucket to upload to
+  * the specific URI of the bucket
+  * name of file to be stored at Amazon S3
+  * public permissions to file after upload
+  * content type of data
+  * AWS Access Key, public key used to validate certificate
+  * a BASE64 coded policy
+  * a signature of the policy, signed by private key on server
+  * the URI the browser will be redirected to after upload
+  * meta data about original file  
+
+Read more about Amazon S3 [Amazon#Amazon S3 here].
+
 ==== fetcher.php  ====
 ==== first.php ====
 ==== import.php ====
