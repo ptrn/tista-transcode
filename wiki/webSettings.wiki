@@ -57,3 +57,30 @@ See [webSettings#change_Amazon_access_keys changing Amazon access keys] and [web
 $GLOBALS['CONF']['s3']['bucket'] = 'dokfilm-raw_up';
 $GLOBALS['CONF']['s3']['bucketURI'] = 'http://s3.amazonaws.com/dokfilm-raw_up';
 }}}
+
+== change transcoding formats ==
+
+Currently the predefined output formats include MP4 (h.264+ACC) and OGG(Theora+Vorbis). To modify, remove or add output formats you must enter a new array of parameters in the formats array, as defined in `core.php`.
+
+{{{
+$GLOBALS['CONF']['ttc']['output'] = array(
+                               array(
+                                     'format'=>'mp4',
+                                     'vcodec'=>'h.264',
+                                     'acodec'=>'aac',
+                                     'vbitrate'=>1024,
+                                     'abitrate'=>128,
+                                     'width'=>640,
+                                     ),
+                               array(
+                                     'format'=>'ogg',
+                                     'vcodec'=>'theora',
+                                     'acodec'=>'vorbis',
+                                     'vbitrate'=>1024,
+                                     'abitrate'=>64,
+                                     'width'=>640,
+                                     ),
+                               );
+}}}
+
+Allowed parameters is defined under [TTC#Add_one_job TTC interface]. Note that not all allowed parameters are shown in the example above.
