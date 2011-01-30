@@ -8,14 +8,14 @@ As no files in the system are absolute, one can change the internal path without
 
 If you want to move the site root from one path to another on the server, you will have to change the base path defined in the [webFilestructure#.htaccess .htaccess] file, as well as a variable in [webFilestructure#core.php core.php].
 
-Examples using ´/dokfilm/prototype/ajax/´ as base path.
+Examples using `/dokfilm/prototype/ajax/` as base path.
 
-**´.htaccess´:**
+**`.htaccess`:**
 {{{
 RewriteBase /dokfilm/prototype/ajax/
 }}}
 
-´**core.php**´:
+**`core.php`**:
 {{{
 $GLOBALS['CONF']['path'] = '/dokfilm/prototype/ajax/';
 }}}
