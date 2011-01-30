@@ -51,12 +51,9 @@ $GLOBALS['CONF']['s3']['private'] = 'abc+def+ghi';
 
 Changing the Amazon account will trigger a access key change, and unless the bucket used previously is transferred the bucket will also need to be changed.
 
-See [ changing Amazon access keys] and [ changing Amazon S3 bucket].
-
-
+See [webSettings#change_Amazon_access_keys changing Amazon access keys] and [webSettings#change_Amazon_S3_bucket changing Amazon S3 bucket].
 
 {{{
 $GLOBALS['CONF']['s3']['bucket'] = 'dokfilm-raw_up';
-
 $GLOBALS['CONF']['s3']['bucketURI'] = 'http://s3.amazonaws.com/dokfilm-raw_up';
 }}}
