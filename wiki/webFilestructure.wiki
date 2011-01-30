@@ -90,7 +90,7 @@ Used to rewrite URL's. Parameters are sent as `/par1/par2`. Eg.:
 }}}
 In this example, the site for viewing a video is requested, with video ID 4863. This makes the URI less confusing and more clean. The only case where query strings are used is post upload of an object to Amazon S3, but the user is immediately redirected to a new page. 
 
-Also note that the document index is changed to ´first.php´ instead of the default, ´index.php´.
+Also note that the document index is changed to `first.php` instead of the default, `index.php`.
 
 ==== core.php ====
 
@@ -158,15 +158,15 @@ This is the HTML code for the form to upload an object. Note that the actual sub
 
 The sequence is as following:
   * user selects a file to upload
-  * user clicks on submit button, which triggers the JavaScript function ´upload.click()´
-    * JavaScript does GET request to ´events/upload-video-pre.php´, giving name of file selected for upload
+  * user clicks on submit button, which triggers the JavaScript function `upload.click()`
+    * JavaScript does GET request to `events/upload-video-pre.php`, giving name of file selected for upload
     * GET request returns dynamic variables required to upload to Amazon S3
     * JavaScript adds hidden inputs containing required variables
     * the uploading is triggered
 
 ==== js/annotations.js ====
 
-JavaScript for handling annotation when viewing a video. The function ´anno.updateTime()´ gets more and more inefficient as the number of annotations for a video increases, as all annotations are iterated on update.
+JavaScript for handling annotation when viewing a video. The function `anno.updateTime()` gets more and more inefficient as the number of annotations for a video increases, as all annotations are iterated on update.
 
 ==== js/core.js ====
 
