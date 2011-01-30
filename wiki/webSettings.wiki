@@ -6,15 +6,18 @@ As no files in the system are absolute, one can change the internal path without
 
 == change path in URI ==
 
-If you want to move the site root from one path to another on the server, you will have to change the base path defined in the [webFilestructure#.htaccess .htaccess] file.
+If you want to move the site root from one path to another on the server, you will have to change the base path defined in the [webFilestructure#.htaccess .htaccess] file, as well as a variable in [webFilestructure#core.php core.php].
+
+Examples using ´/dokfilm/prototype/ajax/´ as base path.
+
+**´.htaccess´:**
 {{{
-http://example.com/
+RewriteBase /dokfilm/prototype/ajax/
 }}}
 
-to
-
+**´core.php´:**
 {{{
-http://example.com/sub/
+$GLOBALS['CONF']['path'] = '/dokfilm/prototype/ajax/';
 }}}
 
-changes will have 
+However, changing domain or subdomain does not require any 
