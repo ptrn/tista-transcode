@@ -1,0 +1,20 @@
+= modifying settings =
+
+== change path in filedirectory ==
+
+As no files in the system are absolute, one can change the internal path without having to change any settings.
+
+== change path in URI ==
+
+If you want to move the site root from one path to another on the server, you will have to change the base path defined in the [webFilestructure#.htaccess .htaccess] file.
+{{{
+http://example.com/
+}}}
+
+to
+
+{{{
+http://example.com/sub/
+}}}
+
+changes will have 
