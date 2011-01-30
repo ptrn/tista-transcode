@@ -15,7 +15,7 @@ Examples using ´/dokfilm/prototype/ajax/´ as base path.
 RewriteBase /dokfilm/prototype/ajax/
 }}}
 
-**´core.php´:**
+´**core.php**´:
 {{{
 $GLOBALS['CONF']['path'] = '/dokfilm/prototype/ajax/';
 }}}
