@@ -3,8 +3,7 @@
 All examples shown here are done with the following settings:
 
   * base path set to `/dokfilm/prototype/ajax/`
-
-
+  * Amazon S3 bucket is `dokfilm-raw_up`
 
 == change path in filedirectory ==
 
