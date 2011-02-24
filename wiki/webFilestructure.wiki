@@ -11,7 +11,7 @@ This describes the file tree for the web prototype, and the purpose of each file
 |   |-- upload-video-post.php
 |   `-- upload-video-pre.php
 |-- fetcher.php
-|-- first.php
+|-- index.php
 |-- img
 |   |-- annot.png
 |   |-- dot-red.png
@@ -48,7 +48,7 @@ This describes the file tree for the web prototype, and the purpose of each file
     * Generates policy and certificate to allow upload of object to Amazon. READ MORE SOMEWHERE
   * *`fetcher.php`*
     * various set functions to extract data from the database
-  * *`first.php`*
+  * *`index.php`*
     * TODO
   * *`import.php`*
     * parses SRT files
@@ -88,9 +88,7 @@ Used to rewrite URL's. Parameters are sent as `/par1/par2`. Eg.:
 {{{
 /view/4863
 }}}
-In this example, the site for viewing a video is requested, with video ID 4863. This makes the URI less confusing and more clean. The only case where query strings are used is post upload of an object to Amazon S3, but the user is immediately redirected to a new page. 
-
-Also note that the document index is changed to `first.php` instead of the default, `index.php`.
+In this example, the site for viewing a video is requested, with video ID 4863. This makes the URI less confusing and more clean. The only case where query strings are used is post upload of an object to Amazon S3, but the user is immediately redirected to a new page.
 
 ==== core.php ====
 
