@@ -90,6 +90,8 @@ Used to rewrite URL's. Parameters are sent as `/par1/par2`. Eg.:
 }}}
 In this example, the site for viewing a video is requested, with video ID 4863. This makes the URI less confusing and more clean. The only case where query strings are used is post upload of an object to Amazon S3, but the user is immediately redirected to a new page.
 
+The configuration settings specified in this file should be set in the webserver settings file instead of using a .htaccess file, as this will increase server performance.
+
 ==== core.php ====
 
 This file defines all common PHP classes, variables and functions. MER OM VIKTIGE VARIABLER
