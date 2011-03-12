@@ -94,7 +94,7 @@ The configuration settings specified in this file should be set in the webserver
 
 ==== core.php ====
 
-This file defines all common PHP classes, variables and functions. MER OM VIKTIGE VARIABLER
+This file defines all common PHP classes, variables and functions.
 
 ==== events/upload-subs-post.php ====
 
