@@ -2,5 +2,5 @@
 
 Read more about Amazon S3 and how to use it at these pages:
 
-  * [http://s3.amazonaws.com/doc/s3-example-code/post/post_sample.html upload form ]
+  * [http://s3.amazonaws.com/doc/s3-example-code/post/post_sample.html HTTP upload form ]
   * [http://docs.amazonwebservices.com/AmazonS3/latest/dev/index.html?UploadObjSingleOpPHP.html dynamically creating policies and signing them]
