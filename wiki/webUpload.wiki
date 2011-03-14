@@ -18,4 +18,6 @@ User enters page and finds input form for file upload. The user selects a file a
      * the uploaded file gets queued in TTC, one for each predefined format (defined in _/core.php_)
      * the uploaded file gets stored in the systems own database, and all the predefined video formats gets an entry that refers to the masterfile
        * as each file is queued in TTC its corresponding job ID gets added to that entry
+   * the server sends a redirect signal to the web browser, redirecting to the page where the video can be viewed
 
+After this, the transcoding system will find the queued jobs and process each one of them.
