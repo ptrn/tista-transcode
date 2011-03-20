@@ -1,0 +1,14 @@
+RewriteEngine On
+
+# path dependent variable
+RewriteBase /dokfilm/
+
+RewriteRule ^add/annotation/(.*?)/(.*)$                 events/add-annotation.php?id=$1              [L,QSA]
+RewriteRule ^upload/subs/submit/.*$                     events/upload-subs-post.php                  [L]
+RewriteRule ^upload/subs/(.*)$                          index.php?v=us&id=$1                         [L]
+RewriteRule ^upload/video/finished/(.*?)/(.*?)/.*$      events/upload-video-post.php?id=$1&fname=$2  [L,QSA]
+RewriteRule ^upload/video/getkeys/(.*)$                 events/upload-video-pre.php?fname=$1         [L]
+RewriteRule ^view/(.*)$                                 index.php?v=v&m=$1                           [L]
+
+# fix for old paths
+RewriteRule ^prototype/ajax/(.*)$                       $1                                           [R]
