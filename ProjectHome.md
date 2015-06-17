@@ -1,0 +1,1 @@
+Tista-transcode is a collection of scripts wrapping VLC, ffmpeg2theora and other tools, for distributed transcoding of large amounts of video.
